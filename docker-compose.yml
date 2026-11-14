@@ -1,0 +1,27 @@
+# Local development database for BaDekor.
+# Start with: docker compose up -d db
+# The credentials here are for local development only and match server/.env.example.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: ba_dekor-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ba_dekor
+      POSTGRES_PASSWORD: ba_dekor
+      POSTGRES_DB: ba_dekor
+    ports:
+      # Host port is overridable so the stack still works on a machine that
+      # already runs PostgreSQL on 5432 (set DB_PORT=5433 in .env).
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ba_dekor -d ba_dekor']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

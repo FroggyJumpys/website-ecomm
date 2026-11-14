@@ -1,0 +1,99 @@
+/* BaDekor design tokens (Tailwind v4 CSS-first configuration).
+ *
+ * The palette is a single warm-neutral family plus one locked accent.
+ * `primary` is the template's original #fd3d57 and is spent only on price,
+ * primary action and active state. Neutrals carry every other surface.
+ */
+@theme {
+  /* Surfaces and text */
+  --color-paper: #f7f5f1;
+  --color-surface: #ffffff;
+  --color-sand: #e8e0d5;
+  --color-ink: #1b1917;
+  --color-ink-soft: #5d5750;
+  --color-ulin: #2f2721;
+
+  /* The one accent, plus a darker step of the same hue for hover/active */
+  --color-primary: #fd3d57;
+  --color-primary-deep: #d42341;
+
+  /* Semantic states, used only for real state */
+  --color-success: #1f6f4a;
+  --color-warning: #8a5a12;
+  --color-danger: #b3261e;
+
+  /* Type: Poppins carries display and money, Roboto carries reading */
+  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Roboto', ui-sans-serif, system-ui, sans-serif;
+
+  --text-display: clamp(2.5rem, 5vw, 4.25rem);
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 600;
+
+  --text-title: clamp(1.5rem, 2.4vw, 2rem);
+  --text-title--line-height: 1.15;
+  --text-title--letter-spacing: -0.022em;
+  --text-title--font-weight: 600;
+
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.3;
+  --text-heading--letter-spacing: -0.012em;
+  --text-heading--font-weight: 500;
+
+  --text-spec: 0.8125rem;
+  --text-spec--line-height: 1.4;
+  --text-spec--letter-spacing: 0.005em;
+
+  /* Radius rule: surfaces 12px, fields 6px, actions are pills */
+  --radius-card: 0.75rem;
+  --radius-field: 0.375rem;
+
+  /* One shadow scale, warm-tinted, used instead of borders on raised cards */
+  --shadow-card: 0 1px 2px rgb(27 25 23 / 0.04), 0 8px 24px -12px rgb(27 25 23 / 0.16);
+  --shadow-lift: 0 2px 4px rgb(27 25 23 / 0.06), 0 18px 40px -16px rgb(27 25 23 / 0.24);
+
+  /* Motion: one vocabulary, strong ease-out, short. */
+  --animate-fade-in: fade-in 180ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-rise-in: rise-in 520ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-drawer-in: drawer-in 260ms cubic-bezier(0.23, 1, 0.32, 1) both;
+  --animate-drawer-in-left: drawer-in-left 260ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes drawer-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
