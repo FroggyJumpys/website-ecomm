@@ -167,6 +167,21 @@ export function validateAddress(values) {
   return errors;
 }
 
+/**
+ * Field errors for the checkout form. The shipping address itself is validated
+ * by `validateAddress` when it is created, so here it only has to exist.
+ */
+export function validateCheckout(values) {
+  const errors = {};
+
+  if (!values.address) errors.address = 'Pilih alamat pengiriman lebih dulu.';
+  if (!values.shippingMethod) errors.shippingMethod = 'Pilih metode pengiriman.';
+  if (!values.paymentMethod) errors.paymentMethod = 'Pilih metode pembayaran.';
+  if (!values.terms) errors.terms = 'Centang persetujuan untuk melanjutkan.';
+
+  return errors;
+}
+
 /** Field errors for the registration form, keyed by field name. */
 export function validateRegister(values) {
   const errors = {};
@@ -189,6 +204,104 @@ export function validateRegister(values) {
   }
 
   if (!values.terms) errors.terms = 'Centang persetujuan untuk melanjutkan.';
+
+  return errors;
+}
+
+/* ------------------------------------------------- panel toko (03i) */
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function isWholeNumber(value) {
+  return String(value).trim() !== '' && Number.isInteger(Number(value));
+}
+
+/**
+ * Field errors for the admin product form. Prices arrive as input strings, so
+ * they are converted here rather than trusted from the DOM.
+ */
+export function validateProduct(values) {
+  const errors = {};
+
+  const name = String(values.name ?? '').trim();
+  if (!name) errors.name = 'Nama produk wajib diisi.';
+  else if (name.length < 3) errors.name = 'Nama produk minimal 3 karakter.';
+  else if (name.length > 120) errors.name = 'Nama produk maksimal 120 karakter.';
+
+  const slug = String(values.slug ?? '').trim();
+  if (slug && (slug.length > 80 || !SLUG_PATTERN.test(slug))) {
+    errors.slug = 'Slug hanya huruf kecil, angka, dan tanda hubung.';
+  }
+
+  if (!values.categorySlug) errors.categorySlug = 'Pilih kategori.';
+  if (!values.brandSlug) errors.brandSlug = 'Pilih merek.';
+
+  if (!isWholeNumber(values.price) || Number(values.price) <= 0) {
+    errors.price = 'Harga wajib diisi dengan angka Rupiah tanpa desimal.';
+  } else if (Number(values.price) > 1_000_000_000_000) {
+    errors.price = 'Harga terlalu besar.';
+  }
+
+  const compareAt = String(values.compareAtPrice ?? '').trim();
+  if (compareAt) {
+    if (!isWholeNumber(compareAt)) {
+      errors.compareAtPrice = 'Harga sebelum diskon harus angka Rupiah.';
+    } else if (Number(compareAt) <= Number(values.price)) {
+      errors.compareAtPrice = 'Harga sebelum diskon harus lebih tinggi dari harga jual.';
+    }
+  }
+
+  if (!isWholeNumber(values.stock) || Number(values.stock) < 0) {
+    errors.stock = 'Stok harus angka 0 atau lebih.';
+  } else if (Number(values.stock) > 1_000_000) {
+    errors.stock = 'Stok terlalu besar.';
+  }
+
+  const material = String(values.material ?? '').trim();
+  if (!material) errors.material = 'Bahan wajib diisi.';
+  else if (material.length > 120) errors.material = 'Bahan maksimal 120 karakter.';
+
+  const dimensions = String(values.dimensions ?? '').trim();
+  if (!dimensions) errors.dimensions = 'Dimensi wajib diisi.';
+  else if (dimensions.length > 60) errors.dimensions = 'Dimensi maksimal 60 karakter.';
+
+  const description = String(values.description ?? '').trim();
+  if (!description) errors.description = 'Deskripsi wajib diisi.';
+  else if (description.length > 800) errors.description = 'Deskripsi maksimal 800 karakter.';
+
+  if (!Array.isArray(values.images) || values.images.length === 0) {
+    errors.images = 'Tambahkan minimal satu gambar produk.';
+  }
+
+  if (!Array.isArray(values.colors) || values.colors.length === 0) {
+    errors.colors = 'Tambahkan minimal satu warna.';
+  }
+
+  return errors;
+}
+
+/** Field errors for a category or brand row in the panel. */
+export function validateTaxonomy(values) {
+  const errors = {};
+
+  const name = String(values.name ?? '').trim();
+  if (!name) errors.name = 'Nama wajib diisi.';
+  else if (name.length < 2) errors.name = 'Nama minimal 2 karakter.';
+  else if (name.length > 60) errors.name = 'Nama maksimal 60 karakter.';
+
+  const slug = String(values.slug ?? '').trim();
+  if (slug && (slug.length > 80 || !SLUG_PATTERN.test(slug))) {
+    errors.slug = 'Slug hanya huruf kecil, angka, dan tanda hubung.';
+  }
+
+  if (String(values.description ?? '').length > 200) {
+    errors.description = 'Deskripsi maksimal 200 karakter.';
+  }
+
+  const image = String(values.image ?? '').trim();
+  if (image && !/^(\/|https?:\/\/)/.test(image)) {
+    errors.image = 'Gunakan path gambar yang diawali / atau URL lengkap.';
+  }
 
   return errors;
 }

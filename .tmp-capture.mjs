@@ -1,4 +1,4 @@
-// Temporary verification harness for step 03f.
+// Temporary verification harness for the admin steps (03h–03j).
 // Owns the preview server and Chrome, captures exact device sizes over CDP.
 // Usage: node .tmp-capture.mjs [name-prefix-filter]
 import { spawn } from 'node:child_process';
@@ -8,10 +8,22 @@ import path from 'node:path';
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = 9333;
 const BASE = 'http://localhost:5199';
-const OUT = '.reviews/assets/03f';
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const CUSTOMER = { email: 'sari@badekor.id', password: 'rahasia123' };
+const ADMIN = { email: 'admin@badekor.id', password: 'rahasia123' };
+
+const SOFA = '/produk/sofa-ulin-l-shape';
+const CHAIR = '/produk/kursi-rotan-sungai';
+
+/** Add two different products, then land on `route`. */
+const withCart = (route) => [
+  { goto: SOFA },
+  { clickText: 'Tambah ke keranjang' },
+  { goto: CHAIR },
+  { clickText: 'Tambah ke keranjang' },
+  { goto: route },
+];
 
 const desktop = (name, route, extra = {}) => ({
   name,
@@ -19,7 +31,7 @@ const desktop = (name, route, extra = {}) => ({
   height: 900,
   route,
   reset: true,
-  login: CUSTOMER,
+  login: ADMIN,
   fullPage: true,
   ...extra,
 });
@@ -30,71 +42,165 @@ const mobile = (name, route, extra = {}) => ({
   height: 844,
   route,
   reset: true,
-  login: CUSTOMER,
+  login: ADMIN,
   fullPage: true,
   ...extra,
 });
 
 const shots = [
-  desktop('desktop-wishlist', '/favorit'),
-  desktop('desktop-wishlist-product-page', '/produk/sofa-ulin-l-shape'),
-  desktop('desktop-wishlist-shop-hearts', '/toko'),
-  desktop('desktop-wishlist-added-from-card', '/toko', {
-    steps: [{ click: '[aria-label^="Simpan"]' }, { wait: 1200 }],
-  }),
-  desktop('desktop-wishlist-after-add', '/favorit', {
-    steps: [
-      { goto: '/toko' },
-      { click: '[aria-label^="Simpan"]' },
-      { wait: 1200 },
-      { goto: '/favorit' },
-    ],
-  }),
-  desktop('desktop-wishlist-moved', '/favorit', {
-    steps: [{ clickText: 'Pindahkan ke keranjang' }, { wait: 1400 }],
-  }),
-  desktop('desktop-wishlist-removed', '/favorit', {
-    steps: [{ clickText: 'Hapus' }, { wait: 1400 }],
-  }),
-  desktop('desktop-wishlist-empty', '/favorit', {
-    steps: [
-      { clickText: 'Hapus' },
-      { wait: 1200 },
-      { clickText: 'Hapus' },
-      { wait: 1200 },
-      { clickText: 'Hapus' },
-      { wait: 1400 },
-    ],
-  }),
-  desktop('desktop-wishlist-soldout', '/favorit'),
   {
-    name: 'desktop-wishlist-guest-heart',
+    name: 'debug-products-metrics',
     width: 1440,
     height: 900,
-    route: '/toko',
+    route: '/admin/produk',
     reset: true,
-    fullPage: true,
-    steps: [{ click: '[aria-label^="Simpan"]' }, { wait: 1600 }],
+    login: ADMIN,
+    fullPage: false,
+    out: '.reviews/assets/tmp',
+    steps: [
+      {
+        eval: `(() => { const divs = Array.from(document.querySelectorAll('div')).filter((d) => d.scrollWidth > d.clientWidth + 1); return divs.map((d) => ({ sw: d.scrollWidth, cw: d.clientWidth, cls: d.className.slice(0, 70) })); })()`,
+      },
+      {
+        eval: `document.elementsFromPoint(700, 352).map((el) => el.tagName + '|' + String(el.className).slice(0, 60)).join(' >> ')`,
+      },
+      {
+        eval: `JSON.stringify(Array.from(document.querySelectorAll('table')).map((t) => { const w = t.parentElement; const cs = getComputedStyle(w); return { tag: w.tagName, cls: String(w.className).slice(0, 80), rect: w.getBoundingClientRect().toJSON(), kids: Array.from(w.childNodes).map((n) => ({ type: n.nodeType, name: n.nodeName, text: (n.textContent || '').slice(0, 20), rect: n.getBoundingClientRect ? n.getBoundingClientRect().toJSON() : null })), overflowX: cs.overflowX, overflowY: cs.overflowY, padTop: cs.paddingTop }; }))`,
+      },
+    ],
   },
   {
-    name: 'desktop-wishlist-guard',
+    name: 'debug-band',
     width: 1440,
     height: 900,
-    route: '/favorit',
+    route: '/admin/produk',
     reset: true,
-    fullPage: true,
+    login: ADMIN,
+    fullPage: false,
+    out: '.reviews/assets/tmp',
+    clip: { x: 250, y: 320, width: 900, height: 70, scale: 3 },
   },
-  mobile('mobile-wishlist', '/favorit'),
-  mobile('mobile-wishlist-product-page', '/produk/sofa-ulin-l-shape'),
-  mobile('mobile-wishlist-moved', '/favorit', {
-    steps: [{ clickText: 'Pindahkan ke keranjang' }, { wait: 1400 }],
+  desktop('desktop-admin-products', '/admin/produk', { out: '.reviews/assets/03i' }),
+  desktop('desktop-admin-product-edit', '/admin/produk', {
+    out: '.reviews/assets/03i',
+    fullPage: false,
+    steps: [{ click: '[aria-label^="Ubah "]' }, { wait: 900 }],
   }),
+  desktop('desktop-admin-product-new', '/admin/produk', {
+    out: '.reviews/assets/03i',
+    fullPage: false,
+    steps: [{ clickText: 'Tambah produk' }, { wait: 900 }],
+  }),
+  desktop('desktop-admin-product-delete', '/admin/produk', {
+    out: '.reviews/assets/03i',
+    fullPage: false,
+    steps: [{ click: '[aria-label^="Hapus "]' }, { wait: 700 }],
+  }),
+  desktop('desktop-admin-product-created', '/admin/produk', {
+    out: '.reviews/assets/03i',
+    steps: [
+      { clickText: 'Tambah produk' },
+      {
+        fill: [
+          { selector: '#produk-nama', value: 'Kursi Uji Coba' },
+          { selector: '#produk-harga', value: '4500000' },
+          { selector: '#produk-bahan', value: 'Kayu ulin solid' },
+          { selector: '#produk-dimensi', value: '60 × 60 × 75 cm' },
+          { selector: '#produk-deskripsi', value: 'Kursi uji coba yang dibuat dari panel toko.' },
+          { selector: '#produk-warna', value: 'Ulin natural' },
+          { selector: '#produk-gambar', value: '/images/products/product4.jpg' },
+        ],
+      },
+      { eval: 'document.getElementById("form-produk").requestSubmit()' },
+      { wait: 1800 },
+      { eval: 'document.querySelectorAll("tbody tr").length' },
+    ],
+  }),
+  desktop('desktop-admin-product-live', '/toko?q=kursi-uji-coba', {
+    out: '.reviews/assets/03i',
+    steps: [
+      { goto: '/admin/produk' },
+      { clickText: 'Tambah produk' },
+      {
+        fill: [
+          { selector: '#produk-nama', value: 'Kursi Uji Coba' },
+          { selector: '#produk-harga', value: '4500000' },
+          { selector: '#produk-bahan', value: 'Kayu ulin solid' },
+          { selector: '#produk-dimensi', value: '60 × 60 × 75 cm' },
+          { selector: '#produk-deskripsi', value: 'Kursi uji coba yang dibuat dari panel toko.' },
+          { selector: '#produk-warna', value: 'Ulin natural' },
+          { selector: '#produk-gambar', value: '/images/products/product4.jpg' },
+        ],
+      },
+      { eval: 'document.getElementById("form-produk").requestSubmit()' },
+      { wait: 1800 },
+      { goto: '/toko?q=kursi-uji-coba' },
+    ],
+  }),
+  desktop('desktop-admin-categories', '/admin/produk?tab=kategori', { out: '.reviews/assets/03i' }),
+  desktop('desktop-admin-brands', '/admin/produk?tab=merek', { out: '.reviews/assets/03i' }),
+  desktop('desktop-admin-category-in-use', '/admin/produk?tab=kategori', {
+    out: '.reviews/assets/03i',
+    fullPage: false,
+    steps: [{ click: '[aria-label^="Hapus "]' }, { wait: 500 }, { clickText: 'Hapus' }, { wait: 1200 }],
+  }),
+  mobile('mobile-admin-products', '/admin/produk', { out: '.reviews/assets/03i' }),
+  mobile('mobile-admin-product-new', '/admin/produk', {
+    out: '.reviews/assets/03i',
+    fullPage: false,
+    steps: [{ clickText: 'Tambah produk' }, { wait: 900 }],
+  }),
+  desktop('desktop-admin-dashboard', '/admin', { out: '.reviews/assets/03h' }),
+  desktop('desktop-admin-orders', '/admin/pesanan', { out: '.reviews/assets/03j' }),
+  desktop('desktop-admin-orders-filter', '/admin/pesanan', {
+    out: '.reviews/assets/03j',
+    fullPage: false,
+    steps: [{ clickText: 'Dikirim' }, { wait: 700 }],
+  }),
+  desktop('desktop-admin-orders-search', '/admin/pesanan', {
+    out: '.reviews/assets/03j',
+    fullPage: false,
+    fill: [{ selector: 'input[aria-label="Cari pesanan"]', value: 'BD-2026-0392' }],
+    steps: [{ wait: 700 }],
+  }),
+  desktop('desktop-admin-order-detail', '/admin/pesanan/BD-2026-0417', {
+    out: '.reviews/assets/03j',
+  }),
+  desktop('desktop-admin-order-shipped', '/admin/pesanan/BD-2026-0392', {
+    out: '.reviews/assets/03j',
+  }),
+  desktop('desktop-admin-order-cancelled', '/admin/pesanan/BD-2026-0307', {
+    out: '.reviews/assets/03j',
+  }),
+  desktop('desktop-admin-order-status-updated', '/admin/pesanan/BD-2026-0417', {
+    out: '.reviews/assets/03j',
+    fullPage: false,
+    steps: [
+      {
+        eval: `(() => { const select = document.getElementById('status-pesanan'); const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set; setter.call(select, 'shipped'); select.dispatchEvent(new Event('change', { bubbles: true })); return select.value; })()`,
+      },
+      { clickText: 'Simpan status' },
+      { wait: 1600 },
+    ],
+  }),
+  mobile('mobile-admin-orders', '/admin/pesanan', { out: '.reviews/assets/03j' }),
+  mobile('mobile-admin-order-detail', '/admin/pesanan/BD-2026-0417', {
+    out: '.reviews/assets/03j',
+  }),
+  desktop('desktop-admin-forbidden', '/admin', {
+    out: '.reviews/assets/03h',
+    login: CUSTOMER,
+  }),
+  desktop('desktop-admin-guard', '/admin', { out: '.reviews/assets/03h', login: false }),
+  desktop('desktop-admin-menu', '/', {
+    out: '.reviews/assets/03h',
+    steps: [{ click: '[aria-label^="Akun"]' }, { wait: 700 }],
+  }),
+  mobile('mobile-admin-dashboard', '/admin', { out: '.reviews/assets/03h' }),
 ];
 
 const only = process.argv[2];
 const selected = only ? shots.filter((shot) => shot.name.startsWith(only)) : shots;
-
-mkdirSync(OUT, { recursive: true });
 
 const preview = spawn('npx', ['vite', 'preview', '--port', '5199', '--strictPort'], {
   cwd: 'client',
@@ -217,6 +323,9 @@ try {
   await send('Page.enable');
 
   for (const shot of selected) {
+    const outDir = shot.out ?? '.reviews/assets/tmp';
+    mkdirSync(path.resolve(outDir), { recursive: true });
+
     await send('Emulation.setDeviceMetricsOverride', {
       width: shot.width,
       height: shot.height,
@@ -225,6 +334,10 @@ try {
     });
 
     if (shot.reset) {
+      // Touch the app origin first: the very first shot starts on about:blank,
+      // where clearing storage would be a no-op on the real origin.
+      await send('Page.navigate', { url: `${BASE}/` });
+      await wait(600);
       await evaluate('window.localStorage.clear(); window.sessionStorage.clear();');
     }
 
@@ -249,6 +362,9 @@ try {
         await wait(2000);
       } else if (step.wait) {
         await wait(step.wait);
+      } else if (step.eval) {
+        const value = await evaluate(step.eval);
+        console.log(`  eval →`, JSON.stringify(value)?.slice(0, 300));
       }
     }
 
@@ -267,16 +383,13 @@ try {
 
     const { data } = await send('Page.captureScreenshot', {
       format: 'png',
-      ...(clip ? { clip } : {}),
+      ...(shot.clip ? { clip: shot.clip } : clip ? { clip } : {}),
       captureBeyondViewport: Boolean(clip),
     });
-    writeFileSync(path.resolve(OUT, `${shot.name}.png`), Buffer.from(data, 'base64'));
+    writeFileSync(path.resolve(outDir, `${shot.name}.png`), Buffer.from(data, 'base64'));
 
     const where = await evaluate('location.pathname + location.search');
-    const carts = await evaluate(
-      'document.querySelectorAll("header a[aria-label^=\\"Keranjang\\"] span").length'
-    );
-    console.log(`saved ${shot.name} @ ${shot.width}×${shot.height} → ${where} (cartBadge=${carts})`);
+    console.log(`saved ${shot.name} @ ${shot.width}×${shot.height} → ${where}`);
   }
 
   socket.close();

@@ -1,10 +1,15 @@
-import { products, productFilters } from './products.js';
-import { categories, brands } from './taxonomy.js';
+import { productFilters } from './products.js';
+import { readCatalog } from './catalogStore.js';
 
 /**
  * In-memory implementation of the catalogue API. Each function returns the
  * exact payload the Express routes will return in Phase 4, so swapping the
  * implementation in step 05 does not change any component.
+ *
+ * Every read goes through `catalogStore`, which the admin panel writes to, so a
+ * product created in the panel is immediately visible in the storefront.
+ * Products with `isActive: false` are hidden from customers but stay in the
+ * admin list.
  */
 
 const LATENCY_MS = 220;
@@ -13,10 +18,14 @@ function delay(value) {
   return new Promise((resolve) => setTimeout(() => resolve(value), LATENCY_MS));
 }
 
+function visibleProducts(catalog) {
+  return catalog.products.filter((product) => product.isActive !== false);
+}
+
 /** Product summary shape shared by the catalogue and the wishlist mocks. */
-export function toSummary(product) {
-  const category = categories.find((item) => item.slug === product.categorySlug);
-  const brand = brands.find((item) => item.slug === product.brandSlug);
+export function toSummary(product, catalog) {
+  const category = catalog.categories.find((item) => item.slug === product.categorySlug);
+  const brand = catalog.brands.find((item) => item.slug === product.brandSlug);
 
   return {
     id: product.id,
@@ -70,12 +79,16 @@ function sortProducts(list, sort) {
 }
 
 export async function listProducts(filters = {}) {
+  const catalog = readCatalog();
   const page = Number(filters.page ?? 1);
   const limit = Number(filters.limit ?? 9);
-  const filtered = sortProducts(products.filter((item) => matches(item, filters)), filters.sort);
+  const filtered = sortProducts(
+    visibleProducts(catalog).filter((item) => matches(item, filters)),
+    filters.sort
+  );
 
   return delay({
-    data: filtered.slice((page - 1) * limit, page * limit).map(toSummary),
+    data: filtered.slice((page - 1) * limit, page * limit).map((item) => toSummary(item, catalog)),
     meta: {
       page,
       limit,
@@ -86,7 +99,8 @@ export async function listProducts(filters = {}) {
 }
 
 export async function getProductBySlug(slug) {
-  const product = products.find((item) => item.slug === slug);
+  const catalog = readCatalog();
+  const product = visibleProducts(catalog).find((item) => item.slug === slug);
 
   if (!product) {
     const error = new Error('Produk tidak ditemukan.');
@@ -95,8 +109,8 @@ export async function getProductBySlug(slug) {
     throw error;
   }
 
-  const category = categories.find((item) => item.slug === product.categorySlug);
-  const brand = brands.find((item) => item.slug === product.brandSlug);
+  const category = catalog.categories.find((item) => item.slug === product.categorySlug);
+  const brand = catalog.brands.find((item) => item.slug === product.brandSlug);
 
   return delay({
     data: {
@@ -109,22 +123,25 @@ export async function getProductBySlug(slug) {
 }
 
 export async function listRelatedProducts(slug, limit = 4) {
-  const product = products.find((item) => item.slug === slug);
+  const catalog = readCatalog();
+  const product = visibleProducts(catalog).find((item) => item.slug === slug);
   if (!product) return delay({ data: [] });
+
+  const visible = visibleProducts(catalog);
 
   // Real catalogue APIs fill "related" with several signals. Start with the
   // same category, then the same brand, then the best-rated remaining items, so
   // the rail always has something useful even when a category is small.
-  const sameCategory = products.filter(
+  const sameCategory = visible.filter(
     (item) => item.slug !== slug && item.categorySlug === product.categorySlug
   );
-  const sameBrand = products.filter(
+  const sameBrand = visible.filter(
     (item) =>
       item.slug !== slug &&
       item.brandSlug === product.brandSlug &&
       item.categorySlug !== product.categorySlug
   );
-  const rest = products
+  const rest = visible
     .filter(
       (item) =>
         item.slug !== slug &&
@@ -135,15 +152,15 @@ export async function listRelatedProducts(slug, limit = 4) {
 
   const related = [...sameCategory, ...sameBrand, ...rest].slice(0, limit);
 
-  return delay({ data: related.map(toSummary) });
+  return delay({ data: related.map((item) => toSummary(item, catalog)) });
 }
 
 export async function listCategories() {
-  return delay({ data: categories });
+  return delay({ data: readCatalog().categories });
 }
 
 export async function listBrands() {
-  return delay({ data: brands });
+  return delay({ data: readCatalog().brands });
 }
 
 export async function listFilters() {

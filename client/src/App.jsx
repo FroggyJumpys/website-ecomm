@@ -15,7 +15,13 @@ import { CartPage } from './pages/CartPage.jsx';
 import { CheckoutPage } from './pages/CheckoutPage.jsx';
 import { OrderCompletePage } from './pages/OrderCompletePage.jsx';
 import { NotFoundPage } from './pages/NotFoundPage.jsx';
+import { AdminLayout } from './layouts/AdminLayout.jsx';
+import { AdminDashboardPage } from './pages/admin/AdminDashboardPage.jsx';
+import { AdminProductsPage } from './pages/admin/AdminProductsPage.jsx';
+import { AdminOrdersPage } from './pages/admin/AdminOrdersPage.jsx';
+import { AdminOrderDetailPage } from './pages/admin/AdminOrderDetailPage.jsx';
 import { RequireAuth } from './components/auth/RequireAuth.jsx';
+import { RequireAdmin } from './components/auth/RequireAdmin.jsx';
 import { AccountLayout } from './components/account/AccountLayout.jsx';
 import { routes } from './lib/nav.js';
 
@@ -38,8 +44,22 @@ export default function App() {
           }
         />
         <Route path={path(routes.cart)} element={<CartPage />} />
-        <Route path={path(routes.checkout)} element={<CheckoutPage />} />
-        <Route path={path(routes.orderComplete())} element={<OrderCompletePage />} />
+        <Route
+          path={path(routes.checkout)}
+          element={
+            <RequireAuth>
+              <CheckoutPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path={path(routes.orderComplete())}
+          element={
+            <RequireAuth>
+              <OrderCompletePage />
+            </RequireAuth>
+          }
+        />
         <Route path={path(routes.login)} element={<LoginPage />} />
         <Route path={path(routes.register)} element={<RegisterPage />} />
         <Route
@@ -57,6 +77,20 @@ export default function App() {
           <Route path="pesanan/:orderNumber" element={<OrderDetailPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
+      </Route>
+
+      <Route
+        path={path(routes.admin)}
+        element={
+          <RequireAdmin>
+            <AdminLayout />
+          </RequireAdmin>
+        }
+      >
+        <Route index element={<AdminDashboardPage />} />
+        <Route path="produk" element={<AdminProductsPage />} />
+        <Route path="pesanan" element={<AdminOrdersPage />} />
+        <Route path="pesanan/:orderNumber" element={<AdminOrderDetailPage />} />
       </Route>
     </Routes>
   );

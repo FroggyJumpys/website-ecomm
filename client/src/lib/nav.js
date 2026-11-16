@@ -20,6 +20,7 @@ export const routes = {
   admin: '/admin',
   adminProducts: '/admin/produk',
   adminOrders: '/admin/pesanan',
+  adminOrder: (orderNumber = ':orderNumber') => `/admin/pesanan/${orderNumber}`,
 };
 
 /**
@@ -49,4 +50,10 @@ export const accountNav = [
   { label: 'Alamat', to: routes.addresses },
   { label: 'Favorit', to: routes.wishlist },
   { label: 'Keranjang', to: routes.cart },
+];
+
+export const adminNav = [
+  { label: 'Ringkasan', to: routes.admin },
+  { label: 'Produk', to: routes.adminProducts },
+  { label: 'Pesanan', to: routes.adminOrders },
 ];

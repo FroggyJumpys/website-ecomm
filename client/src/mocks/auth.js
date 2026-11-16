@@ -98,6 +98,15 @@ export function getSessionUserId() {
   return session?.userId ?? null;
 }
 
+/**
+ * Every account, without password hashes. The admin mocks (03h–03j) join orders
+ * to their customer with this; 04i replaces it with a SQL join.
+ */
+export async function listUsers() {
+  const users = await loadUsers();
+  return users.map(toPublicUser);
+}
+
 function readSession() {
   try {
     for (const storage of [window.localStorage, window.sessionStorage]) {

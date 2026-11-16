@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiLogOut, FiUser } from 'react-icons/fi';
+import { FiBox, FiLogOut, FiUser } from 'react-icons/fi';
 import { Badge } from '../ui/Badge.jsx';
 import { headerIconButton } from '../ui/buttonStyles.js';
 import { useAuth } from '../../context/authContext.js';
@@ -105,6 +105,15 @@ export function AccountMenu() {
               ))}
             </ul>
           </nav>
+
+          {user.role === 'admin' && (
+            <div className="mt-1.5 border-t border-sand pt-1.5">
+              <Link to={routes.admin} onClick={() => setOpen(false)} className={menuItem}>
+                <FiBox className="size-4 shrink-0" aria-hidden="true" />
+                Panel toko
+              </Link>
+            </div>
+          )}
 
           <div className="mt-1.5 border-t border-sand pt-1.5">
             <button type="button" onClick={handleLogout} className={menuItem}>

@@ -1,4 +1,4 @@
-import { products } from './products.js';
+import { readCatalog } from './catalogStore.js';
 import { normalizePhone } from '../lib/validation.js';
 
 /**
@@ -105,7 +105,7 @@ function seedAddresses() {
 }
 
 function line(productId, { quantity = 1, color, size } = {}) {
-  const product = products.find((item) => item.id === productId);
+  const product = readCatalog().products.find((item) => item.id === productId);
 
   return {
     productId: product.id,
@@ -336,6 +336,93 @@ export async function getOrder(userId, orderNumber) {
   if (!order) {
     throw accountError('ORDER_NOT_FOUND', 'Pesanan ini tidak ditemukan.', 404);
   }
+
+  return delay({ data: clone(order) });
+}
+
+/**
+ * Raw order store keyed by user id. The admin mocks (03h–03j) need every
+ * customer's orders, so they read the same storage instead of keeping a second
+ * copy. Returned by value: callers must not mutate it.
+ */
+export function readOrdersByUser() {
+  return clone(readStore(ORDERS_KEY, seedOrders));
+}
+
+/**
+ * Raw writer for the order store. Only the admin mock moves an order's status;
+ * customers add orders through `createOrder`. Kept beside the reader so the
+ * storage key stays private to this module.
+ */
+export function writeOrdersByUser(store) {
+  writeStore(ORDERS_KEY, store);
+}
+
+/**
+ * Next `BD-<year>-<sequence>` number for a customer. Sequences continue from the
+ * highest number already stored, so two orders placed in the same session cannot
+ * collide.
+ */
+function nextOrderNumber(orders) {
+  const year = new Date().getFullYear();
+  const pattern = new RegExp(`^BD-${year}-(\\d+)$`);
+  const highest = orders.reduce((max, order) => {
+    const match = pattern.exec(order.orderNumber ?? '');
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+
+  return `BD-${year}-${String(highest + 1).padStart(4, '0')}`;
+}
+
+/**
+ * Places an order from the cart. Product names, prices and the shipping address
+ * are copied onto the order, exactly as tbl_pesanan/tbl_item_pesanan will store
+ * them, so a later price change never rewrites history.
+ *
+ * Stock is deliberately not decremented here: 04g does that in a database
+ * transaction, and pretending to do it in the mock would only put the seeded
+ * catalogue out of step with the checkout demo.
+ */
+export async function createOrder(userId, payload) {
+  const store = readStore(ORDERS_KEY, seedOrders);
+  const list = Array.isArray(store[userId]) ? [...store[userId]] : [];
+  const now = new Date().toISOString();
+
+  const items = (payload.items ?? []).map((item) => ({
+    productId: item.productId,
+    slug: item.slug,
+    name: item.name,
+    image: item.image,
+    price: item.price,
+    quantity: item.quantity,
+    color: item.color ?? '',
+    size: item.size ?? '',
+  }));
+
+  if (items.length === 0) {
+    throw accountError('CART_EMPTY', 'Keranjangmu kosong. Tambahkan produk sebelum membayar.', 400);
+  }
+
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingCost = Number(payload.shippingCost) || 0;
+  const order = {
+    orderNumber: nextOrderNumber(list),
+    createdAt: now,
+    status: 'processing',
+    items,
+    subtotal,
+    shippingCost,
+    discount: 0,
+    total: subtotal + shippingCost,
+    shippingAddress: normalizeAddress(payload.address ?? {}, payload.address?.id ?? 0),
+    paymentMethod: clean(payload.paymentMethod),
+    trackingNumber: null,
+    timeline: [{ status: 'processing', at: now }],
+    cancellationReason: null,
+  };
+
+  store[userId] = [order, ...list];
+  writeStore(ORDERS_KEY, store);
 
   return delay({ data: clone(order) });
 }

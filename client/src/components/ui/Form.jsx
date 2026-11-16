@@ -130,7 +130,7 @@ export function Select({ id, label, hint, error, required, className, children, 
   );
 }
 
-export function Checkbox({ id, label, error, className, ...props }) {
+export function Checkbox({ id, label, hint, error, className, ...props }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
 
@@ -150,11 +150,13 @@ export function Checkbox({ id, label, error, className, ...props }) {
           </label>
         )}
       </div>
-      {error && (
+      {error ? (
         <p className="text-spec text-danger" role="alert">
           {error}
         </p>
-      )}
+      ) : hint ? (
+        <p className="text-spec text-ink-soft/80">{hint}</p>
+      ) : null}
     </div>
   );
 }

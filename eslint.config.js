@@ -13,6 +13,8 @@ export default [
       'legacy-template/**',
       'client/public/**',
       'screenshots/**',
+      '.tmp-chrome-profile/**',
+      '.tmp-capture.mjs',
     ],
   },
 

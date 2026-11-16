@@ -11,6 +11,7 @@ import {
   updateAddress,
   updateProfile,
 } from '../services/account.js';
+import { createOrder } from '../services/orders.js';
 
 /**
  * Account server-state hooks. Query keys include the user id so signing out and
@@ -89,4 +90,16 @@ export function useDeleteAddress() {
 
 export function useSetDefaultAddress() {
   return useAddressMutation(setDefaultAddress);
+}
+
+/** Placing an order adds a row to the history, so that query is refreshed. */
+export function useCreateOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createOrder,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
 }

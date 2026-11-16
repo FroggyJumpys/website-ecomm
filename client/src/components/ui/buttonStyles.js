@@ -8,6 +8,7 @@ const base =
 const variants = {
   primary: 'bg-primary text-white hover:bg-primary-deep',
   dark: 'bg-ink text-paper hover:bg-ulin',
+  danger: 'bg-danger text-white hover:bg-danger/90',
   outline: 'border border-ink/20 text-ink hover:border-ink hover:bg-ink/5',
   ghost: 'text-ink hover:bg-ink/5',
   link: 'rounded-none text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink',

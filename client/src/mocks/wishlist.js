@@ -1,4 +1,4 @@
-import { products } from './products.js';
+import { readCatalog } from './catalogStore.js';
 import { toSummary } from './index.js';
 
 /**
@@ -53,31 +53,32 @@ function seedWishlist() {
   return { 1: [5, 10, 1], 2: [] };
 }
 
-function toItem(product) {
-  return { ...toSummary(product), colors: product.colors, sizes: product.sizes };
+function toItem(product, catalog) {
+  return { ...toSummary(product, catalog), colors: product.colors, sizes: product.sizes };
 }
 
 export async function listWishlist(userId) {
   const store = readStore();
+  const catalog = readCatalog();
   const ids = Array.isArray(store[userId]) ? store[userId] : [];
   const items = ids
-    .map((id) => products.find((product) => product.id === id))
-    .filter(Boolean)
-    .map(toItem);
+    .map((id) => catalog.products.find((product) => product.id === id))
+    // A product the admin hid is not offered to the customer any more.
+    .filter((product) => product && product.isActive !== false)
+    .map((product) => toItem(product, catalog));
 
   return delay({ data: items });
 }
 
 /** Idempotent: saving the same product twice must not create a duplicate row. */
 export async function addToWishlist(userId, productId) {
-  const product = products.find((item) => item.id === Number(productId));
+  const catalog = readCatalog();
+  const product = catalog.products.find(
+    (item) => item.id === Number(productId) && item.isActive !== false
+  );
 
   if (!product) {
-    throw wishlistError(
-      'PRODUCT_NOT_FOUND',
-      'Produk ini tidak ada di katalog kami.',
-      404
-    );
+    throw wishlistError('PRODUCT_NOT_FOUND', 'Produk ini tidak ada di katalog kami.', 404);
   }
 
   const store = readStore();
@@ -88,7 +89,7 @@ export async function addToWishlist(userId, productId) {
     writeStore(store);
   }
 
-  return delay({ data: toItem(product) });
+  return delay({ data: toItem(product, catalog) });
 }
 
 export async function removeFromWishlist(userId, productId) {
