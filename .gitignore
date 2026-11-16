@@ -148,5 +148,5 @@ vite.config.ts.timestamp-*
 # Turbo Repo
 .turbo
 
-.tmp-chrome-profile
+.tmp-chrome-profile/
 .reviews
