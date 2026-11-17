@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { ping } from '../config/db.js';
+import authRoutes from './auth.js';
 import pkg from '../../package.json' with { type: 'json' };
 
 const router = Router();
+
+router.use('/auth', authRoutes);
 
 /** Liveness: the process is up. Never touches the database. */
 router.get('/health', (req, res) => {

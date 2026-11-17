@@ -1,10 +1,10 @@
 # 00 – Development plan
 
-- **Status:** Awaiting review
+- **Status:** Changes requested
 - **Phase:** 0 – Planning
 - **Date:** 2026-11-12
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Zed coding agent
 
 ## Summary
 
@@ -58,7 +58,38 @@ Nothing has been changed in the codebase yet. This step only adds `AGENTS.md`, `
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+### Review — 2026-11-16
+
+**Verdict: Changes requested.** This review covers step 00 only. Later implementation steps are not reviewed or approved here. Only this review file was edited; no application, configuration, or legacy-template files were changed.
+
+#### Findings
+
+1. **P2 — The plan still prescribes Tailwind v3 after the project adopted v4.** The audit's remediation table (original lines 27–28) tells the implementer to configure `content` and `screens`; assumption 7 (line 43) explicitly retains v3; Revision 1 item 3 (line 72) still pins the audit to v3.x. These are inconsistent with the supplied `AGENTS.md`, which requires Tailwind v4, CSS-first `@theme` tokens in `client/src/styles/theme.css`, and `@tailwindcss/vite`, without a new `tailwind.config.js`. Following this note would scaffold the wrong configuration. **Requested correction:** distinguish the legacy v3 audit from the current v4 implementation decision, mark the old assumption as superseded, and update the remediation and dependency-audit instructions. Preserve the original template config as reference rather than porting its configuration API.
+
+2. **P2 — Required review evidence is missing.** The note has no `Files added / changed` table or `How to run and verify` section, despite both being required by `AGENTS.md` and `.reviews/_TEMPLATE.md`. The `Not done` paragraph names three files, but does not provide a reproducible way to verify the audit or reconcile the accepted decisions with the roadmap. **Requested correction:** add the file table, exact read-only verification commands, and a checklist covering the nine pages, assets, configuration defects, and roadmap consistency. For this documentation-only step, explicitly state that no application URL applies. Keep any commands not actually executed marked unverified rather than claiming completion. Runtime tests need not be invented for a planning note.
+
+3. **P2 — The stray-script remediation conflicts with retaining the original template.** The audit table (original line 30) instructs deleting `public/pages/ondex.js`, while the target layout in `AGENTS.md` keeps the original static template under `legacy-template/` as design reference. The file currently exists at `legacy-template/public/pages/ondex.js` and imports the undeclared `flowbite-tailwind` package. Deleting it from the preserved source is unnecessary to build the React app and changes the reference material. **Requested correction:** say to exclude the script from the new client and reimplement only the needed interaction in React, leaving the legacy reference untouched.
+
+#### Evidence and coverage
+
+- Read the supplied `AGENTS.md`, this note including Revision 1, and `.reviews/_TEMPLATE.md`.
+- Confirmed nine HTML pages by file discovery under `legacy-template/public/`.
+- Confirmed 12 product images, six category images, and the listed banner, offer, logo, completion and payment-method assets by directory inspection.
+- Read `legacy-template/package.json`: Tailwind `^3.0.23`, forms `^0.5.0`, Flowbite `^1.6.5`, Font Awesome `^6.0.0`, and no build/watch scripts. These are legacy declarations, not verification of current registry versions.
+- Read `legacy-template/tailwind.config.js`: confirmed the spaced content glob, singular `theme.screen`, `#fd3d57`, and Poppins/Roboto configuration. Read `legacy-template/src/main.css` and the end of the generated CSS, which ends at line 1766.
+- Read the stray script and inspected HTML references to Google Fonts and `node_modules` assets. The current root README is not evidence of the historical upstream README; that historical claim was not independently verified.
+- Loaded `frontend-design` and `ui-taste`, including the read-only audit and consistency guidance. Inspected `screenshots/Ecommerce-Tailwind.png` as a static reference: the furniture imagery, pink-red accent, white storefront, category grid and product sections support preserving the existing design rather than introducing a redesign.
+- **Limits:** no terminal or browser tool is available in this session. No lint, tests, builds, dev server, live URLs, viewport checks, keyboard interactions, contrast measurements, or performance measurements were run. A static reference image does not establish the current client's visual or accessibility quality. Those checks belong to their respective implementation reviews.
+
+#### Disposition of open questions
+
+- Admin scope, currency, language and brand are already answered in Revision 1 and the current `AGENTS.md`; do not reopen them as undecided requirements.
+- The roadmap already requires tests for backend steps and later frontend quality work. Course-specific expectations and team ownership may remain open without weakening those requirements.
+- Deployment can remain deferred to step 10. Local PostgreSQL setup belongs to step 01b; step 00 need not choose an installation method to complete the dependency audit.
+
+#### Next action
+
+Append `Revision 2` in this same file addressing the three findings, leaving this reviewer verdict intact. Keep the status `Changes requested` until re-review; only the reviewer may set `Approved`. Later steps were observed to exist but were not assessed in this pass.
 
 ## Revision 1
 
