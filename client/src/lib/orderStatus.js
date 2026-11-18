@@ -30,6 +30,22 @@ export const ORDER_STATUS = {
 /** The happy path, in order. `cancelled` is deliberately not part of it. */
 export const ORDER_FLOW = ['processing', 'shipped', 'completed'];
 
+/**
+ * Which moves the server accepts, mirrored from `server/src/lib/orderTransitions.js`.
+ * `completed` and `cancelled` are terminal; the panel must not offer anything
+ * else, because a rejected move would be a `409 ORDER_STATUS_CONFLICT`.
+ */
+export const NEXT_STATUSES = {
+  processing: ['shipped', 'cancelled'],
+  shipped: ['completed', 'cancelled'],
+  completed: [],
+  cancelled: [],
+};
+
+export function allowedNextStatuses(status) {
+  return NEXT_STATUSES[status] ?? [];
+}
+
 export const ORDER_FILTERS = [
   { value: 'all', label: 'Semua' },
   { value: 'processing', label: 'Diproses' },

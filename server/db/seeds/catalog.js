@@ -1,8 +1,9 @@
 /**
- * Catalogue seed data, ported from the frontend mock (client/src/mocks).
+ * Catalogue seed data, ported from the original frontend mock and now the
+ * server-side source of truth.
  *
- * This file is the server-side source of truth from Phase 4 onwards: the mocks
- * are deleted in step 05. Shapes match the columns in migrations 002_catalog.sql.
+ * The client mocks were deleted in step 05, so this file is the only copy of
+ * the catalogue shape; it matches the columns in migrations 002_catalog.sql.
  * User-facing strings are in Bahasa Indonesia; prices are whole Rupiah.
  */
 

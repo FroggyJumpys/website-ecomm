@@ -124,6 +124,15 @@ Each row is one step and produces one review note.
 | -- | --------------------------- | -------------------------------------------------------------------------------------------- |
 | 05 | `05-frontend-integration.md`| Replace `mocks/` with real API calls, loading/error/empty states, auth guard against the real session, CORS and proxy config |
 
+### Phase 5b: Review backlog
+
+Every review note written up to this point is worked through in order before any finishing
+touch starts. Do not begin Phase 6 while a review below is still unread.
+
+| #   | Review file              | Goal                                                                                       |
+| --- | ------------------------ | ------------------------------------------------------------------------------------------ |
+| 05b | `05b-review-backlog.md`  | Work through every open review note (00 through 05) oldest first: read it, reproduce each open question or change request, fix it, verify it, and record the outcome in this note's worklist. A review is finished only when its own *How to verify* checklist passes and its open questions are answered. Then move to the next one, and only after the last review is closed does Phase 6 start |
+
 ### Phase 6: Finishing touches
 | #  | Review file                | Goal                                                                                         |
 | -- | -------------------------- | -------------------------------------------------------------------------------------------- |

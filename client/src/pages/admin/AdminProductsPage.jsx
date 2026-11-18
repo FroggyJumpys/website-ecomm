@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { ProductsPanel } from '../../components/admin/ProductsPanel.jsx';
 import { TaxonomyPanel } from '../../components/admin/TaxonomyPanel.jsx';
-import { useAdminProducts, useAdminTaxonomy } from '../../hooks/useAdmin.js';
+import { useAdminTaxonomy } from '../../hooks/useAdmin.js';
 import { routes } from '../../lib/nav.js';
 import { cn } from '../../lib/cn.js';
 
@@ -21,7 +21,6 @@ export function AdminProductsPage() {
   const requested = params.get('tab');
   const tab = TABS.some((item) => item.value === requested) ? requested : 'produk';
 
-  const productsQuery = useAdminProducts();
   const taxonomyQuery = useAdminTaxonomy();
 
   const categories = taxonomyQuery.data?.data?.categories ?? [];
@@ -32,8 +31,8 @@ export function AdminProductsPage() {
       <header className="max-w-2xl">
         <h1 className="text-title text-ink">Katalog</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-          Produk yang kamu simpan di sini langsung tampil di toko. Stok, harga, dan kategori
-          memakai data yang sama dengan halaman koleksi.
+          Produk yang kamu simpan di sini langsung tampil di toko. Stok, harga, dan kategori memakai
+          data yang sama dengan halaman koleksi.
         </p>
       </header>
 
@@ -64,9 +63,7 @@ export function AdminProductsPage() {
         </ul>
       </nav>
 
-      {tab === 'produk' && (
-        <ProductsPanel query={productsQuery} categories={categories} brands={brands} />
-      )}
+      {tab === 'produk' && <ProductsPanel categories={categories} brands={brands} />}
       {tab === 'kategori' && <TaxonomyPanel kind="category" query={taxonomyQuery} />}
       {tab === 'merek' && <TaxonomyPanel kind="brand" query={taxonomyQuery} />}
     </div>

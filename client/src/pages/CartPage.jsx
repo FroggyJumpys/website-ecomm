@@ -1,17 +1,72 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowRight, FiShield, FiTruck } from 'react-icons/fi';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs.jsx';
-import { ButtonLink } from '../components/ui/Button.jsx';
-import { EmptyState } from '../components/ui/EmptyState.jsx';
+import { Button, ButtonLink } from '../components/ui/Button.jsx';
+import { EmptyState, ErrorState } from '../components/ui/EmptyState.jsx';
+import { FormAlert } from '../components/ui/FormAlert.jsx';
+import { Skeleton } from '../components/ui/Spinner.jsx';
 import { CartLine } from '../components/cart/CartLine.jsx';
 import { OrderTotals } from '../components/cart/OrderTotals.jsx';
 import { useAuth } from '../context/authContext.js';
 import { useCart } from '../context/cartContext.js';
 import { routes } from '../lib/nav.js';
 
+function CartSkeleton() {
+  return (
+    <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-14">
+      <div className="space-y-6" aria-busy="true">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="flex gap-4 border-t border-sand pt-6">
+            <Skeleton className="size-24 shrink-0 rounded-card" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-2/3 rounded-full" />
+              <Skeleton className="h-3 w-1/2 rounded-full" />
+              <Skeleton className="h-3 w-1/3 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <Skeleton className="h-64 rounded-card" />
+    </div>
+  );
+}
+
 export function CartPage() {
-  const { items, count, subtotal, updateQuantity, removeItem } = useCart();
+  const {
+    items,
+    count,
+    subtotal,
+    canCheckout,
+    updateQuantity,
+    removeItem,
+    isPending,
+    isError,
+    error,
+    refetch,
+  } = useCart();
   const { isAuthenticated } = useAuth();
+  const [actionError, setActionError] = useState('');
+
+  const changeQuantity = async (key, quantity) => {
+    setActionError('');
+
+    try {
+      await updateQuantity(key, quantity);
+    } catch (mutationError) {
+      setActionError(mutationError.message || 'Jumlah barang tidak dapat diubah. Coba lagi.');
+    }
+  };
+
+  const remove = async (key) => {
+    setActionError('');
+
+    try {
+      await removeItem(key);
+    } catch (mutationError) {
+      setActionError(mutationError.message || 'Barang tidak dapat dihapus. Coba lagi.');
+    }
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
@@ -21,10 +76,10 @@ export function CartPage() {
         <div className="max-w-xl">
           <h1 className="text-title text-ink">Keranjang</h1>
           <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-            Periksa ukuran dan warna sebelum membayar. Ongkos kirim dihitung di langkah
-            berikutnya, karena sofa dan lemari tidak bisa memakai tarif paket biasa.
+            Periksa ukuran dan warna sebelum membayar. Ongkos kirim dihitung di langkah berikutnya,
+            karena sofa dan lemari tidak bisa memakai tarif paket biasa.
           </p>
-          {items.length > 0 && (
+          {!isPending && !isError && items.length > 0 && (
             <p className="mt-3 text-spec text-ink-soft">
               <span className="tabular">{count}</span> barang dari{' '}
               <span className="tabular">{items.length}</span> produk
@@ -37,22 +92,40 @@ export function CartPage() {
         </ButtonLink>
       </header>
 
-      {items.length === 0 ? (
+      {isPending && <CartSkeleton />}
+
+      {isError && (
+        <ErrorState
+          className="py-20"
+          description={error?.message ?? 'Keranjang tidak dapat dimuat.'}
+          onRetry={refetch}
+        />
+      )}
+
+      {!isPending && !isError && items.length === 0 && (
         <EmptyState
           title="Keranjangmu masih kosong"
           description="Simpan produk favorit atau mulai dari koleksi ulin dan rotan yang siap dikirim dari Banjarmasin."
           action={{ label: 'Lihat koleksi', to: routes.shop }}
           className="py-20"
         />
-      ) : (
+      )}
+
+      {!isPending && !isError && items.length > 0 && (
         <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-14">
           <section aria-label="Barang di keranjang">
+            {actionError && (
+              <div className="mb-6">
+                <FormAlert message={actionError} />
+              </div>
+            )}
+
             {items.map((item) => (
               <CartLine
                 key={item.key}
                 item={item}
-                onQuantityChange={updateQuantity}
-                onRemove={() => removeItem(item.key)}
+                onQuantityChange={changeQuantity}
+                onRemove={() => remove(item.key)}
               />
             ))}
 
@@ -67,10 +140,22 @@ export function CartPage() {
               <h2 className="font-display text-heading text-ink">Ringkasan</h2>
               <OrderTotals subtotal={subtotal} className="mt-4" />
 
-              <ButtonLink to={routes.checkout} size="lg" fullWidth className="mt-5">
-                Lanjut ke pembayaran
-                <FiArrowRight className="size-4" aria-hidden="true" />
-              </ButtonLink>
+              {canCheckout ? (
+                <ButtonLink to={routes.checkout} size="lg" fullWidth className="mt-5">
+                  Lanjut ke pembayaran
+                  <FiArrowRight className="size-4" aria-hidden="true" />
+                </ButtonLink>
+              ) : (
+                <>
+                  <Button size="lg" fullWidth className="mt-5" disabled>
+                    Lanjut ke pembayaran
+                    <FiArrowRight className="size-4" aria-hidden="true" />
+                  </Button>
+                  <p className="mt-3 text-spec text-danger">
+                    Perbaiki barang yang bertanda merah di atas sebelum membayar.
+                  </p>
+                </>
+              )}
 
               {!isAuthenticated && (
                 <p className="mt-3 text-spec text-ink-soft">

@@ -54,7 +54,7 @@ export function TaxonomyForm({ kind, item, submitting, onSubmit }) {
 
     const payload = {
       name: values.name,
-      slug: values.slug,
+      ...(values.slug.trim() ? { slug: values.slug.trim() } : {}),
       ...(isCategory ? { description: values.description, image: values.image } : {}),
     };
 

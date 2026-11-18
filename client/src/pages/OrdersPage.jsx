@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AccountPageHeader } from '../components/account/AccountPageHeader.jsx';
 import { OrderRow } from '../components/account/OrderRow.jsx';
 import { Button, ButtonLink } from '../components/ui/Button.jsx';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState.jsx';
+import { Pagination } from '../components/ui/Pagination.jsx';
 import { Skeleton } from '../components/ui/Spinner.jsx';
 import { useOrders } from '../hooks/useAccount.js';
 import { ORDER_FILTERS } from '../lib/orderStatus.js';
@@ -29,7 +30,7 @@ function OrderListSkeleton() {
   );
 }
 
-function OrderResults({ query, filter, filtered, onShowAll }) {
+function OrderResults({ query, filter, orders, onShowAll }) {
   if (query.isPending) return <OrderListSkeleton />;
 
   if (query.isError) {
@@ -42,7 +43,7 @@ function OrderResults({ query, filter, filtered, onShowAll }) {
     );
   }
 
-  if (filtered.length === 0) {
+  if (orders.length === 0) {
     if (filter === 'all') {
       return (
         <EmptyState
@@ -66,7 +67,7 @@ function OrderResults({ query, filter, filtered, onShowAll }) {
 
   return (
     <div className="mt-2 border-t border-sand">
-      {filtered.map((order) => (
+      {orders.map((order) => (
         <OrderRow key={order.orderNumber} order={order} />
       ))}
     </div>
@@ -74,13 +75,26 @@ function OrderResults({ query, filter, filtered, onShowAll }) {
 }
 
 export function OrdersPage() {
-  const query = useOrders();
   const [filter, setFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const query = useOrders({ page, status: filter });
 
   const orders = query.data?.data ?? [];
-  const filtered = filter === 'all' ? orders : orders.filter((order) => order.status === filter);
-  const countFor = (value) =>
-    value === 'all' ? orders.length : orders.filter((order) => order.status === value).length;
+  const meta = query.data?.meta;
+  const counts = meta?.statusCounts ?? {};
+
+  // A different status is a different result set; keeping the old page would
+  // often point past the end of the filtered list.
+  useEffect(() => {
+    setPage(1);
+  }, [filter]);
+
+  const countFor = (value) => (query.isPending ? null : (counts[value] ?? 0));
+
+  const changePage = (nextPage) => {
+    setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div>
@@ -92,6 +106,7 @@ export function OrdersPage() {
       <div role="group" aria-label="Filter status pesanan" className="mt-6 flex flex-wrap gap-1">
         {ORDER_FILTERS.map((option) => {
           const active = filter === option.value;
+          const count = countFor(option.value);
 
           return (
             <button
@@ -105,14 +120,14 @@ export function OrdersPage() {
               )}
             >
               {option.label}
-              {!query.isPending && (
+              {count !== null && (
                 <span
                   className={cn(
                     'tabular text-[0.6875rem]',
                     active ? 'text-paper/70' : 'text-ink-soft/70'
                   )}
                 >
-                  {countFor(option.value)}
+                  {count}
                 </span>
               )}
             </button>
@@ -123,9 +138,18 @@ export function OrdersPage() {
       <OrderResults
         query={query}
         filter={filter}
-        filtered={filtered}
+        orders={orders}
         onShowAll={() => setFilter('all')}
       />
+
+      {!query.isPending && !query.isError && orders.length > 0 && (
+        <Pagination
+          page={page}
+          totalPages={meta?.totalPages ?? 1}
+          onChange={changePage}
+          className="pt-10"
+        />
+      )}
 
       <p className="mt-10 border-t border-sand pt-6 text-sm text-ink-soft">
         Pesanan belum terlihat?{' '}

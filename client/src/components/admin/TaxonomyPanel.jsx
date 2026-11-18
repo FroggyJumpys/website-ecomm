@@ -39,6 +39,14 @@ const copy = {
  * the form already knows which extra fields a category has, and the delete rule
  * (refuse while products still point at it) is identical.
  */
+function deleteMessage(error) {
+  if (error.code === 'TAXONOMY_IN_USE') {
+    return `${error.message} Pindahkan produknya ke ${error.details?.taxonomy === 'brand' ? 'merek lain' : 'kategori lain'} lewat tab Produk.`;
+  }
+
+  return error.message || 'Data tidak dapat dihapus.';
+}
+
 export function TaxonomyPanel({ kind, query }) {
   const { create, update, remove } = useTaxonomyMutations(kind);
   const text = copy[kind];
@@ -49,9 +57,7 @@ export function TaxonomyPanel({ kind, query }) {
   const [deleteError, setDeleteError] = useState('');
 
   const items =
-    kind === 'category'
-      ? (query.data?.data?.categories ?? [])
-      : (query.data?.data?.brands ?? []);
+    kind === 'category' ? (query.data?.data?.categories ?? []) : (query.data?.data?.brands ?? []);
 
   const openCreate = () => {
     setEditing(null);
@@ -85,7 +91,7 @@ export function TaxonomyPanel({ kind, query }) {
       await remove.mutateAsync(deleting.id);
       setDeleting(null);
     } catch (error) {
-      setDeleteError(error.message || `Data ${text.noun} tidak dapat dihapus.`);
+      setDeleteError(deleteMessage(error));
     }
   };
 

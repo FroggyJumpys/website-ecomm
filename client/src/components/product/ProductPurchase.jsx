@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiCheck, FiShield, FiShoppingBag, FiTruck } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa6';
 import { Button } from '../ui/Button.jsx';
+import { FormAlert } from '../ui/FormAlert.jsx';
 import { buttonStyles } from '../ui/buttonStyles.js';
 import { Price } from '../ui/Price.jsx';
 import { QuantityStepper } from '../ui/QuantityStepper.jsx';
@@ -34,6 +35,8 @@ export function ProductPurchase({ product }) {
   const [size, setSize] = useState(sizes[0] ?? '');
   const [quantity, setQuantity] = useState(1);
   const [justAdded, setJustAdded] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState('');
 
   const soldOut = stock <= 0;
   const lowStock = stock > 0 && stock <= 5;
@@ -45,21 +48,35 @@ export function ProductPurchase({ product }) {
   const chooseColor = (value) => {
     setColor(value);
     setJustAdded(false);
+    setAddError('');
   };
 
   const chooseSize = (value) => {
     setSize(value);
     setJustAdded(false);
+    setAddError('');
   };
 
   const chooseQuantity = (value) => {
     setQuantity(value);
     setJustAdded(false);
+    setAddError('');
   };
 
-  const handleAdd = () => {
-    addItem(product, { color, size, quantity });
-    setJustAdded(true);
+  const handleAdd = async () => {
+    if (adding || soldOut) return;
+
+    setAdding(true);
+    setAddError('');
+
+    try {
+      await addItem(product, { color, size, quantity });
+      setJustAdded(true);
+    } catch (error) {
+      setAddError(error.message || 'Produk ini tidak dapat ditambahkan ke keranjang.');
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
@@ -180,12 +197,7 @@ export function ProductPurchase({ product }) {
               />
             )}
             {!soldOut && (
-              <p
-                className={cn(
-                  'text-spec',
-                  lowStock ? 'text-warning' : 'text-ink-soft'
-                )}
-              >
+              <p className={cn('text-spec', lowStock ? 'text-warning' : 'text-ink-soft')}>
                 {lowStock ? `Tersisa ${stock} unit` : 'Stok tersedia'}
               </p>
             )}
@@ -198,6 +210,7 @@ export function ProductPurchase({ product }) {
           size="lg"
           onClick={handleAdd}
           disabled={soldOut}
+          loading={adding}
           className="sm:flex-1"
           aria-describedby={justAdded ? 'keranjang-status' : undefined}
         >
@@ -215,6 +228,12 @@ export function ProductPurchase({ product }) {
           Tanya ukuran
         </a>
       </div>
+
+      {addError && (
+        <div className="mt-3">
+          <FormAlert message={addError} />
+        </div>
+      )}
 
       {justAdded && (
         <p

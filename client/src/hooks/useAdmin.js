@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useAuth } from '../context/authContext.js';
 import {
   createBrand,
@@ -15,6 +15,7 @@ import {
   updateBrand,
   updateCategory,
   updateProduct,
+  uploadProductImage,
 } from '../services/admin.js';
 
 /**
@@ -22,13 +23,14 @@ import {
  * never spends a request on a 403.
  */
 
-export function useAdminOrders() {
+export function useAdminOrders(params = {}) {
   const { isAdmin } = useAuth();
 
   return useQuery({
-    queryKey: ['admin', 'orders'],
-    queryFn: fetchAdminOrders,
+    queryKey: ['admin', 'orders', params],
+    queryFn: () => fetchAdminOrders(params),
     enabled: isAdmin,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -59,13 +61,14 @@ export function useUpdateOrderStatus() {
   });
 }
 
-export function useAdminProducts() {
+export function useAdminProducts(params = {}) {
   const { isAdmin } = useAuth();
 
   return useQuery({
-    queryKey: ['admin', 'products'],
-    queryFn: fetchAdminProducts,
+    queryKey: ['admin', 'products', params],
+    queryFn: () => fetchAdminProducts(params),
     enabled: isAdmin,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -130,6 +133,11 @@ export function useUpdateBrand() {
 
 export function useDeleteBrand() {
   return useCatalogMutation(deleteBrand);
+}
+
+/** Uploads one image and returns the generated catalogue path. */
+export function useUploadProductImage() {
+  return useMutation({ mutationFn: uploadProductImage });
 }
 
 /**

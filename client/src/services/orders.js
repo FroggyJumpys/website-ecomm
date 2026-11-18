@@ -1,28 +1,17 @@
 import { apiRequest } from './http.js';
-import { USE_MOCKS } from '../lib/config.js';
-import { createOrder as mockCreateOrder } from '../mocks/account.js';
-import { getSessionUserId } from '../mocks/auth.js';
 
 /**
- * Checkout services. Step 04g replaces the mock with a POST /orders call inside
- * a database transaction; the client keeps sending the same payload.
+ * Checkout service.
+ *
+ * The request names the address and two policy ids, never a price or an item
+ * list — the server reads the cart and prices the order itself. The
+ * `Idempotency-Key` header is what makes a retry after a lost response return
+ * the order already placed instead of charging twice.
  */
-
-function requireUserId() {
-  const id = getSessionUserId();
-
-  if (!id) {
-    const error = new Error('Sesi kamu sudah berakhir. Masuk lagi untuk melanjutkan pembayaran.');
-    error.code = 'UNAUTHENTICATED';
-    error.status = 401;
-    throw error;
-  }
-
-  return id;
-}
-
-export function createOrder(payload) {
-  if (USE_MOCKS) return mockCreateOrder(requireUserId(), payload);
-
-  return apiRequest('/orders', { method: 'POST', body: payload });
+export function createOrder({ idempotencyKey, ...payload }) {
+  return apiRequest('/orders', {
+    method: 'POST',
+    body: payload,
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
 }

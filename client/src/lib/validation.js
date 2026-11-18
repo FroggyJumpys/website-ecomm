@@ -234,7 +234,6 @@ export function validateProduct(values) {
   }
 
   if (!values.categorySlug) errors.categorySlug = 'Pilih kategori.';
-  if (!values.brandSlug) errors.brandSlug = 'Pilih merek.';
 
   if (!isWholeNumber(values.price) || Number(values.price) <= 0) {
     errors.price = 'Harga wajib diisi dengan angka Rupiah tanpa desimal.';
@@ -299,8 +298,8 @@ export function validateTaxonomy(values) {
   }
 
   const image = String(values.image ?? '').trim();
-  if (image && !/^(\/|https?:\/\/)/.test(image)) {
-    errors.image = 'Gunakan path gambar yang diawali / atau URL lengkap.';
+  if (image && !/^\/(images\/|api\/v1\/media\/catalog\/)/.test(image)) {
+    errors.image = 'Gunakan path /images/... atau hasil unggahan.';
   }
 
   return errors;

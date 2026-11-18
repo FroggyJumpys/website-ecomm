@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiSearch } from 'react-icons/fi';
 import { OrderStatusBadge } from '../../components/account/OrderStatusBadge.jsx';
 import { ErrorState } from '../../components/ui/EmptyState.jsx';
+import { Pagination } from '../../components/ui/Pagination.jsx';
 import { Skeleton } from '../../components/ui/Spinner.jsx';
 import { useAdminOrders } from '../../hooks/useAdmin.js';
 import { ORDER_FILTERS } from '../../lib/orderStatus.js';
@@ -16,6 +17,8 @@ const columns = [
   { key: 'status', label: 'Status' },
   { key: 'total', label: 'Total', className: 'text-right' },
 ];
+
+const PAGE_LIMIT = 20;
 
 function OrderRows({ orders }) {
   return orders.map((order) => (
@@ -32,7 +35,9 @@ function OrderRows({ orders }) {
 
       <td className="hidden py-3 pr-4 align-top sm:table-cell">
         <span className="block truncate text-sm text-ink">{order.customer?.name ?? '—'}</span>
-        <span className="block truncate text-spec text-ink-soft">{order.customer?.email ?? ''}</span>
+        <span className="block truncate text-spec text-ink-soft">
+          {order.customer?.email ?? ''}
+        </span>
       </td>
 
       <td className="py-3 pr-4 align-top">
@@ -71,26 +76,39 @@ function OrderTable({ orders }) {
   );
 }
 
-/** Every customer's orders with a status filter and a search box. */
+/**
+ * Every customer's orders, filtered and paginated by the API.
+ *
+ * The chips read `meta.statusCounts`, which counts everything the search
+ * matches but ignores the selected status — the same rule the customer history
+ * uses, so a chip stays true while the list below it is filtered.
+ */
 export function AdminOrdersPage() {
-  const query = useAdminOrders();
   const [filter, setFilter] = useState('all');
+  const [page, setPage] = useState(1);
   const [term, setTerm] = useState('');
+  const search = useDeferredValue(term.trim());
+
+  const query = useAdminOrders({ page, status: filter, search, limit: PAGE_LIMIT });
 
   const orders = query.data?.data ?? [];
-  const needle = term.trim().toLowerCase();
+  const meta = query.data?.meta;
+  const counts = meta?.statusCounts ?? {};
+  const hasAny = (counts.all ?? 0) > 0;
 
-  const byStatus = filter === 'all' ? orders : orders.filter((order) => order.status === filter);
-  const filtered = needle
-    ? byStatus.filter((order) =>
-        `${order.orderNumber} ${order.customer?.name ?? ''} ${order.customer?.email ?? ''}`
-          .toLowerCase()
-          .includes(needle)
-      )
-    : byStatus;
+  // A changed search or status is a different result set; keeping the old page
+  // would often point past the end of it.
+  useEffect(() => {
+    setPage(1);
+  }, [filter, search]);
 
-  const countFor = (value) =>
-    value === 'all' ? orders.length : orders.filter((order) => order.status === value).length;
+  const countFor = (value) => (query.isPending ? null : (counts[value] ?? 0));
+
+  const resetFilters = () => {
+    setTerm('');
+    setFilter('all');
+    setPage(1);
+  };
 
   return (
     <div>
@@ -102,59 +120,66 @@ export function AdminOrdersPage() {
         </p>
       </header>
 
-      {!query.isPending && !query.isError && orders.length > 0 && (
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <div className="relative min-w-0 flex-1 sm:max-w-xs">
-            <FiSearch
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-soft"
-            />
-            <input
-              type="search"
-              value={term}
-              onChange={(event) => setTerm(event.target.value)}
-              placeholder="Cari nomor atau pelanggan"
-              aria-label="Cari pesanan"
-              className="h-10 w-full rounded-full border border-ink/15 bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-ink-soft/70 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden"
-            />
+      {!query.isPending && !query.isError && hasAny && (
+        <>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className="relative min-w-0 flex-1 sm:max-w-xs">
+              <FiSearch
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-soft"
+              />
+              <input
+                type="search"
+                value={term}
+                onChange={(event) => setTerm(event.target.value)}
+                placeholder="Cari nomor atau pelanggan"
+                aria-label="Cari pesanan"
+                className="h-10 w-full rounded-full border border-ink/15 bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-ink-soft/70 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden"
+              />
+            </div>
+
+            <p className="text-spec text-ink-soft">
+              <span className="tabular">{meta?.total ?? 0}</span>
+              {search ? ' hasil' : ''} pesanan
+            </p>
           </div>
 
-          <p className="text-spec text-ink-soft">
-            <span className="tabular">{filtered.length}</span>
-            {needle ? ` dari ${byStatus.length}` : ''} pesanan
-          </p>
-        </div>
-      )}
+          <div
+            role="group"
+            aria-label="Filter status pesanan"
+            className="mt-4 flex flex-wrap gap-1"
+          >
+            {ORDER_FILTERS.map((option) => {
+              const active = filter === option.value;
+              const count = countFor(option.value);
 
-      {!query.isPending && !query.isError && orders.length > 0 && (
-        <div role="group" aria-label="Filter status pesanan" className="mt-4 flex flex-wrap gap-1">
-          {ORDER_FILTERS.map((option) => {
-            const active = filter === option.value;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setFilter(option.value)}
-                aria-pressed={active}
-                className={cn(
-                  'flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm transition',
-                  active ? 'bg-ink text-paper' : 'text-ink-soft hover:bg-ink/5 hover:text-ink'
-                )}
-              >
-                {option.label}
-                <span
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setFilter(option.value)}
+                  aria-pressed={active}
                   className={cn(
-                    'tabular text-[0.6875rem]',
-                    active ? 'text-paper/70' : 'text-ink-soft/70'
+                    'flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm transition',
+                    active ? 'bg-ink text-paper' : 'text-ink-soft hover:bg-ink/5 hover:text-ink'
                   )}
                 >
-                  {countFor(option.value)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  {option.label}
+                  {count !== null && (
+                    <span
+                      className={cn(
+                        'tabular text-[0.6875rem]',
+                        active ? 'text-paper/70' : 'text-ink-soft/70'
+                      )}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {query.isPending && (
@@ -173,7 +198,7 @@ export function AdminOrdersPage() {
         />
       )}
 
-      {!query.isPending && !query.isError && orders.length === 0 && (
+      {!query.isPending && !query.isError && !hasAny && (
         <div className="mt-6 border-y border-sand py-12 text-center">
           <h2 className="font-display text-heading text-ink">Belum ada pesanan</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-ink-soft">
@@ -182,19 +207,16 @@ export function AdminOrdersPage() {
         </div>
       )}
 
-      {!query.isPending && !query.isError && orders.length > 0 && filtered.length === 0 && (
+      {!query.isPending && !query.isError && hasAny && orders.length === 0 && (
         <div className="mt-6 border-y border-sand py-10 text-center">
           <p className="text-sm text-ink-soft">
-            {needle
+            {search
               ? `Tidak ada pesanan yang cocok dengan “${term.trim()}”.`
               : 'Tidak ada pesanan dengan status ini.'}
           </p>
           <button
             type="button"
-            onClick={() => {
-              setTerm('');
-              setFilter('all');
-            }}
+            onClick={resetFilters}
             className="mt-2 text-sm font-medium text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
           >
             Tampilkan semua pesanan
@@ -202,7 +224,19 @@ export function AdminOrdersPage() {
         </div>
       )}
 
-      {filtered.length > 0 && <OrderTable orders={filtered} />}
+      {!query.isPending && !query.isError && orders.length > 0 && <OrderTable orders={orders} />}
+
+      {!query.isPending && !query.isError && orders.length > 0 && (
+        <Pagination
+          page={page}
+          totalPages={meta?.totalPages ?? 1}
+          onChange={(nextPage) => {
+            setPage(nextPage);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="pt-10"
+        />
+      )}
     </div>
   );
 }

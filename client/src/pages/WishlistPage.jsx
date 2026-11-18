@@ -15,7 +15,10 @@ function WishlistSkeleton() {
   return (
     <div className="mt-2 space-y-6" aria-busy="true">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-4 border-t border-sand pt-6">
+        <div
+          key={index}
+          className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-4 border-t border-sand pt-6"
+        >
           <Skeleton className="aspect-square rounded-card" />
           <div className="space-y-2">
             <Skeleton className="h-4 w-2/3 rounded-full" />
@@ -44,15 +47,23 @@ export function WishlistPage() {
     setPending({ id: item.id, type: 'move' });
 
     removeMutation.mutate(item.id, {
-      onSuccess: () => {
-        // The cart is synchronous, so the line is added only once the wishlist
-        // row is gone: a failed removal cannot leave a product in both lists.
-        addItem(item, selection);
-        setStatus({
-          tone: 'success',
-          message: `${item.name} dipindahkan ke keranjang.`,
-          showCart: true,
-        });
+      onSuccess: async () => {
+        // The wishlist row is gone before the cart write starts, so a failed
+        // add can never leave the product in both lists. The cart add can still
+        // fail on stock, and that message is shown instead of a false success.
+        try {
+          await addItem(item, selection);
+          setStatus({
+            tone: 'success',
+            message: `${item.name} dipindahkan ke keranjang.`,
+            showCart: true,
+          });
+        } catch (error) {
+          setStatus({
+            tone: 'error',
+            message: error.message || 'Produk tidak dapat dipindahkan ke keranjang. Coba lagi.',
+          });
+        }
       },
       onError: (error) => {
         setStatus({
@@ -68,7 +79,8 @@ export function WishlistPage() {
     setPending({ id: item.id, type: 'remove' });
 
     removeMutation.mutate(item.id, {
-      onSuccess: () => setStatus({ tone: 'success', message: `${item.name} dihapus dari favorit.` }),
+      onSuccess: () =>
+        setStatus({ tone: 'success', message: `${item.name} dihapus dari favorit.` }),
       onError: (error) => {
         setStatus({
           tone: 'error',
@@ -125,8 +137,8 @@ export function WishlistPage() {
         <div className="max-w-xl">
           <h1 className="text-title text-ink">Favorit</h1>
           <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-            Produk yang kamu simpan untuk nanti. Pindahkan ke keranjang saat sudah siap dibeli,
-            atau hapus yang sudah tidak cocok.
+            Produk yang kamu simpan untuk nanti. Pindahkan ke keranjang saat sudah siap dibeli, atau
+            hapus yang sudah tidak cocok.
           </p>
           {!query.isPending && !query.isError && items.length > 0 && (
             <p className="mt-3 text-spec text-ink-soft">
@@ -151,7 +163,10 @@ export function WishlistPage() {
           {status.tone === 'error' ? (
             <FormAlert message={status.message} />
           ) : (
-            <p role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-success">
+            <p
+              role="status"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-success"
+            >
               <FiCheck className="size-4 shrink-0" aria-hidden="true" />
               {status.message}
               {status.showCart && (

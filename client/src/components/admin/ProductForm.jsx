@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Checkbox, Input, Select, Textarea } from '../ui/Form.jsx';
 import { FormAlert } from '../ui/FormAlert.jsx';
+import { useUploadProductImage } from '../../hooks/useAdmin.js';
 import { formatIDR, slugify } from '../../lib/format.js';
 import { focusFirstInvalid } from '../../lib/focus.js';
 import { validateProduct } from '../../lib/validation.js';
@@ -18,8 +19,8 @@ function toFormValues(product) {
   return {
     name: product.name,
     slug: product.slug,
-    categorySlug: product.categorySlug,
-    brandSlug: product.brandSlug,
+    categorySlug: product.category?.slug ?? '',
+    brandSlug: product.brand?.slug ?? '',
     price: String(product.price),
     compareAtPrice: product.compareAtPrice ? String(product.compareAtPrice) : '',
     stock: String(product.stock),
@@ -74,6 +75,8 @@ export function ProductForm({ product, categories, brands, submitting, onSubmit 
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [brokenPreview, setBrokenPreview] = useState('');
+  const uploadImage = useUploadProductImage();
+  const [uploadError, setUploadError] = useState('');
 
   const updateField = (field) => (event) => {
     const { type, checked, value } = event.target;
@@ -114,6 +117,38 @@ export function ProductForm({ product, categories, brands, submitting, onSubmit 
     updateField('slug')(event);
   };
 
+  /**
+   * Uploads one file and appends the path the server returned. The form never
+   * invents an image path: the API stores the file and hands back the only URL
+   * a product may reference.
+   */
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setUploadError('');
+
+    try {
+      const payload = await uploadImage.mutateAsync(file);
+      const path = payload?.data?.path;
+      if (!path) throw new Error('Server tidak mengembalikan path gambar.');
+
+      setValues((current) => ({
+        ...current,
+        images: [current.images.trim(), path].filter(Boolean).join('\n'),
+      }));
+      setErrors((current) => {
+        if (!current.images) return current;
+        const next = { ...current };
+        delete next.images;
+        return next;
+      });
+    } catch (error) {
+      setUploadError(error.message || 'Gambar tidak dapat diunggah. Coba lagi.');
+    }
+  };
+
   const images = splitList(values.images);
   const preview = images[0];
   const priceHint = Number(values.price) > 0 ? formatIDR(Number(values.price)) : undefined;
@@ -131,6 +166,10 @@ export function ProductForm({ product, categories, brands, submitting, onSubmit 
       sizes: splitList(values.sizes),
       images: splitList(values.images),
     };
+
+    // A blank slug means "derive it from the name" on create and "leave the
+    // stored one alone" on edit; sending "" would fail the patch schema.
+    if (!String(payload.slug ?? '').trim()) delete payload.slug;
 
     const fieldErrors = validateProduct(payload);
     setErrors(fieldErrors);
@@ -190,8 +229,8 @@ export function ProductForm({ product, categories, brands, submitting, onSubmit 
             value={values.brandSlug}
             onChange={updateField('brandSlug')}
             error={errors.brandSlug}
-            required
           >
+            <option value="">Tanpa merek</option>
             {brands.map((brand) => (
               <option key={brand.slug} value={brand.slug}>
                 {brand.name}
@@ -304,6 +343,33 @@ export function ProductForm({ product, categories, brands, submitting, onSubmit 
           required
         />
 
+        <div className="space-y-1.5">
+          <label htmlFor="produk-unggah" className="block text-spec text-ink-soft">
+            Unggah gambar baru
+          </label>
+          <input
+            id="produk-unggah"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleUpload}
+            disabled={uploadImage.isPending}
+            className="block w-full text-sm text-ink-soft file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-3.5 file:py-2 file:text-sm file:font-medium file:text-paper hover:file:bg-ulin disabled:opacity-60"
+          />
+          <p className="text-spec text-ink-soft/80">
+            JPEG, PNG, atau WebP, maksimal 5 MB. Path hasil unggahan ditambahkan ke daftar di atas.
+          </p>
+          {uploadImage.isPending && (
+            <p className="text-spec text-ink-soft" role="status">
+              Mengunggah dan mengubah ukuran gambar…
+            </p>
+          )}
+          {uploadError && (
+            <p className="text-spec text-danger" role="alert">
+              {uploadError}
+            </p>
+          )}
+        </div>
+
         {preview && preview !== brokenPreview ? (
           <div className="flex items-center gap-3">
             <img
@@ -317,9 +383,7 @@ export function ProductForm({ product, categories, brands, submitting, onSubmit 
           </div>
         ) : (
           preview && (
-            <p className="text-spec text-danger">
-              Gambar tidak dapat dimuat. Periksa path-nya.
-            </p>
+            <p className="text-spec text-danger">Gambar tidak dapat dimuat. Periksa path-nya.</p>
           )
         )}
       </Section>

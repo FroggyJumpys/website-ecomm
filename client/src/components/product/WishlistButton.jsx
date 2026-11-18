@@ -9,7 +9,7 @@ import { useAddToWishlist, useIsSaved, useRemoveFromWishlist } from '../../hooks
  * Save/unsave control shared by the shop card, the shop list row and the
  * product page. Signed-out visitors are sent to the sign-in form with a
  * `redirect` back to where they were, because the wishlist belongs to an
- * account (and step 04e makes that a database table).
+ * account and is stored in `tbl_favorit`.
  */
 
 const variants = {
@@ -17,7 +17,8 @@ const variants = {
   floating:
     'absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-full bg-surface/95 text-ink shadow-card ring-1 ring-ink/10 backdrop-blur transition hover:bg-surface hover:text-primary-deep',
   // Icon + label in a quiet line, for rows next to other text actions.
-  plain: 'inline-flex items-center gap-1.5 text-[0.8125rem] text-ink-soft transition hover:text-ink',
+  plain:
+    'inline-flex items-center gap-1.5 text-[0.8125rem] text-ink-soft transition hover:text-ink',
 };
 
 const savedVariants = {
@@ -52,7 +53,11 @@ export function WishlistButton({ product, variant = 'floating', className }) {
       type="button"
       onClick={toggle}
       aria-pressed={saved}
-      aria-label={iconOnly ? `${saved ? 'Hapus' : 'Simpan'} ${product.name} ${saved ? 'dari' : 'ke'} favorit` : undefined}
+      aria-label={
+        iconOnly
+          ? `${saved ? 'Hapus' : 'Simpan'} ${product.name} ${saved ? 'dari' : 'ke'} favorit`
+          : undefined
+      }
       title={iconOnly ? (saved ? 'Hapus dari favorit' : 'Simpan ke favorit') : undefined}
       disabled={pending}
       className={cn(

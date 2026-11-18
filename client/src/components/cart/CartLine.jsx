@@ -42,6 +42,14 @@ export function CartLine({ item, onQuantityChange, onRemove }) {
         {variant && <p className="mt-1 text-spec text-ink-soft">{variant}</p>}
         <p className="tabular mt-1 text-spec text-ink-soft">{formatIDR(item.price)} / unit</p>
 
+        {item.issues?.length > 0 && (
+          <ul className="mt-2 space-y-0.5 text-spec text-danger">
+            {item.issues.map((issue) => (
+              <li key={issue.code}>{issue.message}</li>
+            ))}
+          </ul>
+        )}
+
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
           <QuantityStepper
             value={item.quantity}
@@ -62,7 +70,9 @@ export function CartLine({ item, onQuantityChange, onRemove }) {
         </div>
 
         {lowStock && (
-          <p className={cn('mt-2.5 text-spec', 'text-warning')}>Tersisa {stock} unit di workshop.</p>
+          <p className={cn('mt-2.5 text-spec', 'text-warning')}>
+            Tersisa {stock} unit di workshop.
+          </p>
         )}
       </div>
 

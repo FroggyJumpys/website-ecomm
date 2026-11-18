@@ -1,7 +1,7 @@
 /**
- * Demo logins for the mock phase. They seed the mock user store (mocks/auth.js)
- * and are listed on the sign-in page so the reviewer can try both roles
- * without registering. Step 10 removes the panel once real accounts exist.
+ * Demo logins seeded by `server/src/db/seed.js` (`npm run db:seed`). They are
+ * listed on the sign-in page so a reviewer can try both roles without
+ * registering. Step 10 removes the panel once real accounts are enough.
  */
 export const DEMO_ACCOUNTS = [
   {

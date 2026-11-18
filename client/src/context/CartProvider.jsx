@@ -1,101 +1,134 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CartContext } from './cartContext.js';
+import {
+  addCartItem,
+  clearCart,
+  fetchCart,
+  removeCartItem,
+  updateCartItemQuantity,
+} from '../services/cart.js';
 
 /**
- * The cart lives in browser storage during the mock phase so a reload — or the
- * trip through /masuk that checkout requires — does not empty it. Step 04f
- * replaces this with `tbl_keranjang` and a guest-token merge on sign-in.
- */
-const STORAGE_KEY = 'badekor.mock.cart';
-
-function clampQuantity(quantity, stock) {
-  const max = Math.max(1, stock);
-  return Math.min(max, Math.max(1, quantity));
-}
-
-function readStoredItems() {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-
-    if (Array.isArray(parsed)) {
-      return parsed.filter((item) => item && typeof item.key === 'string' && Number(item.quantity) > 0);
-    }
-  } catch {
-    /* unreadable or blocked storage: start with an empty cart */
-  }
-
-  return [];
-}
-
-/**
- * Cart state for the mock phase. Items are keyed by product + variant so adding
- * the same sofa in two colours creates two lines, while adding the same variant
- * twice increases its quantity.
+ * Server-backed cart.
+ *
+ * The Express cart is the source of truth: a guest is identified by an
+ * httpOnly cookie the first successful write sets, and a signed-in customer by
+ * the session cookie. Every mutation answers with the whole cart, which is
+ * written straight into the React Query cache, so the header count, the cart
+ * page and checkout all read one snapshot.
+ *
+ * The UI keeps addressing lines by their stable `key` (`product::color::size`),
+ * while the API addresses them by item id; the provider does that translation
+ * so the existing screens do not have to know about ids.
  */
 export function CartProvider({ children }) {
-  const [items, setItems] = useState(readStoredItems);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      /* storage blocked or full: the cart still works for this page load */
-    }
-  }, [items]);
+  const query = useQuery({
+    queryKey: ['cart'],
+    queryFn: fetchCart,
+    staleTime: 0,
+  });
 
-  const addItem = useCallback((product, { color = '', size = '', quantity = 1 } = {}) => {
-    setItems((current) => {
-      const key = `${product.id}::${color}::${size}`;
-      const stock = Number(product.stock) || 0;
-      const existing = current.find((item) => item.key === key);
+  const storeCart = useCallback(
+    (payload) => {
+      if (payload?.data) queryClient.setQueryData(['cart'], payload);
+      return payload;
+    },
+    [queryClient]
+  );
 
-      if (existing) {
-        return current.map((item) =>
-          item.key === key
-            ? { ...item, quantity: clampQuantity(item.quantity + quantity, stock) }
-            : item
-        );
+  const addMutation = useMutation({ mutationFn: addCartItem, onSuccess: storeCart });
+  const quantityMutation = useMutation({
+    mutationFn: updateCartItemQuantity,
+    onSuccess: storeCart,
+  });
+  const removeMutation = useMutation({ mutationFn: removeCartItem, onSuccess: storeCart });
+  const clearMutation = useMutation({ mutationFn: clearCart, onSuccess: storeCart });
+
+  const items = useMemo(() => query.data?.data?.items ?? [], [query.data]);
+
+  const addItem = useCallback(
+    (product, { color = '', size = '', quantity = 1 } = {}) =>
+      addMutation.mutateAsync({ productId: product.id, color, size, quantity }),
+    [addMutation]
+  );
+
+  const updateQuantity = useCallback(
+    (key, quantity) => {
+      const item = items.find((line) => line.key === key);
+
+      if (!item) {
+        return Promise.reject(new Error('Baris keranjang tidak ditemukan. Muat ulang halaman.'));
       }
 
-      return [
-        ...current,
-        {
-          key,
-          productId: product.id,
-          slug: product.slug,
-          name: product.name,
-          image: product.image ?? product.images?.[0] ?? '',
-          price: product.price,
-          stock,
-          color,
-          size,
-          quantity: clampQuantity(quantity, stock),
-        },
-      ];
-    });
-  }, []);
+      return quantityMutation.mutateAsync({ id: item.id, quantity });
+    },
+    [items, quantityMutation]
+  );
 
-  const removeItem = useCallback((key) => {
-    setItems((current) => current.filter((item) => item.key !== key));
-  }, []);
+  const removeItem = useCallback(
+    (key) => {
+      const item = items.find((line) => line.key === key);
 
-  const updateQuantity = useCallback((key, quantity) => {
-    setItems((current) =>
-      current.map((item) =>
-        item.key === key ? { ...item, quantity: clampQuantity(quantity, item.stock) } : item
-      )
-    );
-  }, []);
+      if (!item) {
+        return Promise.reject(new Error('Baris keranjang tidak ditemukan. Muat ulang halaman.'));
+      }
 
-  const clear = useCallback(() => setItems([]), []);
+      return removeMutation.mutateAsync(item.id);
+    },
+    [items, removeMutation]
+  );
+
+  const clear = useCallback(() => clearMutation.mutateAsync(), [clearMutation]);
+
+  /** Re-read after login (guest merge) or checkout (server emptied it). */
+  const refresh = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ['cart'] }),
+    [queryClient]
+  );
 
   const value = useMemo(() => {
-    const count = items.reduce((sum, item) => sum + item.quantity, 0);
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const cart = query.data?.data;
 
-    return { items, addItem, removeItem, updateQuantity, clear, count, subtotal };
-  }, [items, addItem, removeItem, updateQuantity, clear]);
+    return {
+      items,
+      count: cart?.count ?? 0,
+      subtotal: cart?.subtotal ?? 0,
+      canCheckout: cart?.canCheckout ?? false,
+      addItem,
+      updateQuantity,
+      removeItem,
+      clear,
+      refresh,
+      isPending: query.isPending,
+      isError: query.isError,
+      error: query.error,
+      refetch: query.refetch,
+      mutating:
+        addMutation.isPending ||
+        quantityMutation.isPending ||
+        removeMutation.isPending ||
+        clearMutation.isPending,
+    };
+  }, [
+    items,
+    query.data,
+    query.isPending,
+    query.isError,
+    query.error,
+    query.refetch,
+    addItem,
+    updateQuantity,
+    removeItem,
+    clear,
+    refresh,
+    addMutation.isPending,
+    quantityMutation.isPending,
+    removeMutation.isPending,
+    clearMutation.isPending,
+  ]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

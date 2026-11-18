@@ -17,7 +17,8 @@ function whatsappHref(phone) {
   const digits = String(phone ?? '').replace(/[^0-9]/g, '');
   if (!digits) return null;
 
-  // Mock data stores the local 08… form; wa.me needs the 62 country code.
+  // The seeded and registered data store the local 08… form; wa.me needs the
+  // 62 country code.
   return `https://wa.me/${digits.startsWith('0') ? `62${digits.slice(1)}` : digits}`;
 }
 
@@ -53,7 +54,10 @@ function OrderNotFound() {
 
 function OrderItems({ order }) {
   return (
-    <section aria-labelledby="barang-pesanan" className="rounded-card border border-sand bg-surface">
+    <section
+      aria-labelledby="barang-pesanan"
+      className="rounded-card border border-sand bg-surface"
+    >
       <h2
         id="barang-pesanan"
         className="border-b border-sand px-5 py-4 font-display text-heading text-ink"
@@ -99,10 +103,7 @@ function Customer({ order }) {
   const wa = whatsappHref(customer?.phone);
 
   return (
-    <section
-      aria-labelledby="pelanggan"
-      className="rounded-card border border-sand bg-surface p-5"
-    >
+    <section aria-labelledby="pelanggan" className="rounded-card border border-sand bg-surface p-5">
       <h2 id="pelanggan" className="font-display text-heading text-ink">
         Pelanggan
       </h2>
@@ -232,9 +233,16 @@ export function AdminOrderDetailPage() {
   const order = query.data.data;
   const cancelledEvent = order.timeline?.find((entry) => entry.status === 'cancelled');
 
-  const handleStatusSubmit = async (status) => {
-    await updateStatus.mutateAsync({ orderNumber: order.orderNumber, status });
-    setSavedStatus(status);
+  const handleStatusSubmit = async (payload) => {
+    try {
+      await updateStatus.mutateAsync({ orderNumber: order.orderNumber, ...payload });
+      setSavedStatus(payload.status);
+    } catch (error) {
+      // A conflict means another operator moved the order first: re-read it so
+      // the form offers the targets that are legal now, then show the error.
+      if (error.code === 'ORDER_STATUS_CONFLICT') await query.refetch();
+      throw error;
+    }
   };
 
   return (

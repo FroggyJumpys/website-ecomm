@@ -1,8 +1,8 @@
 /**
  * Shop-page state lives in the URL so filtering is shareable and the back
  * button works. URL param names are Bahasa Indonesia (they are user-facing);
- * the catalogue API in step 04c expects English names, so the two are mapped
- * here once instead of in every component.
+ * the catalogue API expects English names, so the two are mapped here once
+ * instead of in every component.
  *
  * The header, footer and home page already link with `?kategori=`, `?q=` and
  * `?sort=`, so those three names must not change without updating lib/nav.js.

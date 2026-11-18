@@ -56,6 +56,10 @@ web_modules/
 # Optional stylelint cache
 .stylelintcache
 
+# Uploaded catalogue images. Runtime data, not source: they are written by the
+# admin upload endpoint and must be backed up separately from git.
+server/uploads/
+
 # Optional REPL history
 .node_repl_history
 
@@ -149,3 +153,6 @@ vite.config.ts.timestamp-*
 .turbo
 
 .tmp-chrome-profile/
+
+# Superpowers execution scratch
+.superpowers/

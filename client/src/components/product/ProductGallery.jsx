@@ -53,9 +53,8 @@ function ImageLightbox({ src, alt, onClose }) {
 /**
  * Product photography frame. Renders one main image with an optional thumbnail
  * strip for products that ship more than one photo, plus a focus-managed
- * lightbox for closer inspection. The mock catalogue currently has one image
- * per product; the component is ready for the multi-image arrays the API will
- * return in step 04c.
+ * lightbox for closer inspection. The catalogue returns the full `images`
+ * array, so a product with several photos gets the strip automatically.
  */
 export function ProductGallery({ images = [], alt, className }) {
   const gallery = images.filter(Boolean);

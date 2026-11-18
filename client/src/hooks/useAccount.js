@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useAuth } from '../context/authContext.js';
 import {
   changePassword,
@@ -29,13 +29,14 @@ export function useAddresses() {
   });
 }
 
-export function useOrders() {
+export function useOrders(params = {}) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['orders', user?.id],
-    queryFn: fetchOrders,
+    queryKey: ['orders', user?.id, params],
+    queryFn: () => fetchOrders(params),
     enabled: Boolean(user),
+    placeholderData: keepPreviousData,
   });
 }
 

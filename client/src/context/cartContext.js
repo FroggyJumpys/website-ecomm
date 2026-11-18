@@ -1,12 +1,12 @@
 import { createContext, useContext } from 'react';
 
 /**
- * Minimal cart store for the product page. Step 03g builds the cart page,
- * line editing and checkout on top of it; keeping the state here (instead of
- * inside the page) means those screens already have a single source of truth.
+ * Cart access for every screen that touches it: the product page, the header
+ * count, the cart page and checkout. `CartProvider` keeps the server snapshot
+ * in one React Query entry, so those screens cannot disagree about a line.
  *
- * `addItem` receives the full product plus the selected colour/size/quantity so
- * the line can be identified before the cart API exists in step 04f.
+ * `addItem` receives the full product plus the selected colour/size/quantity;
+ * the provider sends only the ids the API accepts.
  */
 export const CartContext = createContext(null);
 

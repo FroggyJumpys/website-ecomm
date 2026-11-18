@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiLock } from 'react-icons/fi';
 import { AddressPicker } from '../components/checkout/AddressPicker.jsx';
@@ -10,17 +10,13 @@ import { Button } from '../components/ui/Button.jsx';
 import { Checkbox } from '../components/ui/Form.jsx';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState.jsx';
 import { FormAlert } from '../components/ui/FormAlert.jsx';
+import { Skeleton } from '../components/ui/Spinner.jsx';
 import { useCart } from '../context/cartContext.js';
 import { useAddresses, useCreateAddress, useCreateOrder } from '../hooks/useAccount.js';
 import { formatIDR } from '../lib/format.js';
 import { focusFirstInvalid } from '../lib/focus.js';
 import { routes } from '../lib/nav.js';
-import {
-  DEFAULT_PAYMENT_ID,
-  DEFAULT_SHIPPING_ID,
-  findPaymentOption,
-  findShippingOption,
-} from '../lib/shipping.js';
+import { DEFAULT_PAYMENT_ID, DEFAULT_SHIPPING_ID, findShippingOption } from '../lib/shipping.js';
 import { validateCheckout } from '../lib/validation.js';
 
 function StepHeading({ step, id, title, description }) {
@@ -40,6 +36,14 @@ function StepHeading({ step, id, title, description }) {
       </div>
     </div>
   );
+}
+
+function createIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `fallback-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function ReceiptItem({ item }) {
@@ -72,7 +76,17 @@ function ReceiptItem({ item }) {
  * the total never leaves the screen while choices above it change the cost.
  */
 export function CheckoutPage() {
-  const { items, count, subtotal, clear } = useCart();
+  const {
+    items,
+    count,
+    subtotal,
+    canCheckout,
+    refresh,
+    isPending: cartPending,
+    isError: cartError,
+    error: cartErrorObject,
+    refetch: refetchCart,
+  } = useCart();
   const addressesQuery = useAddresses();
   const createAddress = useCreateAddress();
   const placeOrder = useCreateOrder();
@@ -98,7 +112,15 @@ export function CheckoutPage() {
   const showAddressForm = adding || noSavedAddresses;
 
   const shipping = findShippingOption(shippingId);
-  const payment = findPaymentOption(paymentId);
+
+  // One key per distinct checkout attempt: a retry after a lost response must
+  // reuse it so the server returns the order instead of charging twice, while
+  // changing the address or a policy starts a genuinely new attempt.
+  const idempotencyKey = useRef(createIdempotencyKey());
+
+  useEffect(() => {
+    idempotencyKey.current = createIdempotencyKey();
+  }, [selectedAddress?.id, shippingId, paymentId]);
 
   const handleCreateAddress = async (values) => {
     const payload = await createAddress.mutateAsync(values);
@@ -136,28 +158,43 @@ export function CheckoutPage() {
 
     try {
       const { data: order } = await placeOrder.mutateAsync({
-        items: items.map((item) => ({
-          productId: item.productId,
-          slug: item.slug,
-          name: item.name,
-          image: item.image,
-          price: item.price,
-          quantity: item.quantity,
-          color: item.color,
-          size: item.size,
-        })),
-        address: selectedAddress,
-        shippingCost: shipping.cost,
-        paymentMethod: payment.label,
+        idempotencyKey: idempotencyKey.current,
+        addressId: selectedAddress.id,
+        shippingMethod: shippingId,
+        paymentMethod: paymentId,
       });
 
-      clear();
+      // The order is committed; the cart re-read is background housekeeping and
+      // must not turn a successful checkout into an error if the refetch fails.
+      void refresh();
       navigate(routes.orderComplete(order.orderNumber), { replace: true });
     } catch (error) {
       setFormError(error.message || 'Pesanan tidak dapat dibuat. Coba lagi.');
       setSubmitting(false);
     }
   };
+
+  if (cartPending) {
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-12 sm:px-8" aria-busy="true">
+        <Skeleton className="h-4 w-40 rounded-full" />
+        <Skeleton className="mt-4 h-9 w-64 rounded-full" />
+        <Skeleton className="mt-8 h-64 w-full rounded-card" />
+      </div>
+    );
+  }
+
+  if (cartError) {
+    return (
+      <div className="mx-auto max-w-3xl px-5 py-12 sm:px-8">
+        <ErrorState
+          description={cartErrorObject?.message ?? 'Keranjang tidak dapat dimuat.'}
+          onRetry={refetchCart}
+          className="py-20"
+        />
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -228,7 +265,13 @@ export function CheckoutPage() {
             </div>
           </section>
 
-          <form id="form-pembayaran" ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-10">
+          <form
+            id="form-pembayaran"
+            ref={formRef}
+            onSubmit={handleSubmit}
+            noValidate
+            className="space-y-10"
+          >
             <section aria-labelledby="langkah-pengiriman">
               <StepHeading
                 step="2"
@@ -290,11 +333,7 @@ export function CheckoutPage() {
                 }}
                 aria-invalid={errors.terms ? 'true' : undefined}
                 error={errors.terms}
-                label={
-                  <>
-                    Saya menyetujui syarat pemesanan dan kebijakan pengembalian BaDekor.
-                  </>
-                }
+                label={<>Saya menyetujui syarat pemesanan dan kebijakan pengembalian BaDekor.</>}
               />
             </div>
 
@@ -304,16 +343,25 @@ export function CheckoutPage() {
               </div>
             )}
 
+            {!canCheckout && (
+              <div className="mt-4">
+                <FormAlert message="Ada barang di keranjang yang perlu diperbaiki sebelum pesanan dibuat. Buka keranjang untuk melihatnya." />
+              </div>
+            )}
+
             <Button
               type="submit"
               form="form-pembayaran"
               size="lg"
               fullWidth
               loading={submitting}
+              disabled={!canCheckout}
               className="mt-4"
             >
               <FiLock className="size-4" aria-hidden="true" />
-              {submitting ? 'Membuat pesanan…' : `Buat pesanan · ${formatIDR(subtotal + shipping.cost)}`}
+              {submitting
+                ? 'Membuat pesanan…'
+                : `Buat pesanan · ${formatIDR(subtotal + shipping.cost)}`}
             </Button>
 
             <p className="mt-3 flex items-start gap-2 text-spec text-ink-soft">

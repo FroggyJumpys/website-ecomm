@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import { FiEdit3, FiPlus, FiSearch, FiTrash2 } from 'react-icons/fi';
 import { Badge } from '../ui/Badge.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Drawer } from '../ui/Drawer.jsx';
 import { ErrorState } from '../ui/EmptyState.jsx';
+import { Pagination } from '../ui/Pagination.jsx';
 import { Skeleton } from '../ui/Spinner.jsx';
 import { DeleteConfirm } from './DeleteConfirm.jsx';
 import { ProductForm } from './ProductForm.jsx';
-import { useCreateProduct, useDeleteProduct, useUpdateProduct } from '../../hooks/useAdmin.js';
+import {
+  useAdminProducts,
+  useCreateProduct,
+  useDeleteProduct,
+  useUpdateProduct,
+} from '../../hooks/useAdmin.js';
 import { formatIDR } from '../../lib/format.js';
 import { stockStatus } from '../../lib/stock.js';
 import { cn } from '../../lib/cn.js';
@@ -15,6 +21,38 @@ import { cn } from '../../lib/cn.js';
 const iconAction =
   'grid size-8 place-items-center rounded-full text-ink-soft transition hover:bg-ink/5 hover:text-ink ' +
   'disabled:opacity-50';
+
+const PAGE_LIMIT = 20;
+
+const VISIBILITY_OPTIONS = [
+  { value: 'all', label: 'Semua produk' },
+  { value: 'active', label: 'Tampil di toko' },
+  { value: 'hidden', label: 'Disembunyikan' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Terbaru' },
+  { value: 'name-asc', label: 'Nama A–Z' },
+  { value: 'price-asc', label: 'Harga termurah' },
+  { value: 'price-desc', label: 'Harga tertinggi' },
+];
+
+const filterSelect =
+  'h-10 rounded-full border border-ink/15 bg-surface pl-3 pr-8 text-sm text-ink ' +
+  'focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-hidden';
+
+/** A refusal the operator can act on, with the next step spelled out. */
+function deleteMessage(error) {
+  if (error.code === 'PRODUCT_IN_USE') {
+    return `${error.message} Sebaiknya sembunyikan produk ini lewat tombol Ubah.`;
+  }
+
+  if (error.code === 'PRODUCT_CONFLICT') {
+    return `${error.message} Daftar sudah dimuat ulang; periksa lagi sebelum menghapus.`;
+  }
+
+  return error.message || 'Produk tidak dapat dihapus.';
+}
 
 function ProductRows({ products, onEdit, onDelete }) {
   return products.map((product) => {
@@ -92,28 +130,41 @@ function ProductRows({ products, onEdit, onDelete }) {
   });
 }
 
-/** Product list, its create/edit drawer and the delete confirmation. */
-export function ProductsPanel({ query, categories, brands }) {
+/**
+ * Product list, its create/edit drawer and the delete confirmation.
+ *
+ * Search, visibility and paging run on the server: the panel only keeps the
+ * control state. Writes send the `version` of the row the form was opened on,
+ * so a sale or a second operator produces an explained `409 PRODUCT_CONFLICT`
+ * instead of a silent overwrite.
+ */
+export function ProductsPanel({ categories, brands }) {
+  const [term, setTerm] = useState('');
+  const [visibility, setVisibility] = useState('all');
+  const [sort, setSort] = useState('newest');
+  const [page, setPage] = useState(1);
+  const search = useDeferredValue(term.trim());
+
+  const query = useAdminProducts({ page, limit: PAGE_LIMIT, search, visibility, sort });
+
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
 
-  const [term, setTerm] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState('');
 
   const products = query.data?.data ?? [];
-  const canCreate = categories.length > 0 && brands.length > 0;
-  const needle = term.trim().toLowerCase();
-  const filtered = needle
-    ? products.filter((product) =>
-        `${product.name} ${product.slug} ${product.category?.name ?? ''} ${product.brand?.name ?? ''}`
-          .toLowerCase()
-          .includes(needle)
-      )
-    : products;
+  const meta = query.data?.meta;
+  const total = meta?.total ?? 0;
+  const canCreate = categories.length > 0;
+  const filtered = search !== '' || visibility !== 'all';
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, visibility, sort]);
 
   const openCreate = () => {
     setEditing(null);
@@ -131,24 +182,48 @@ export function ProductsPanel({ query, categories, brands }) {
   };
 
   const handleSubmit = async (payload) => {
-    if (editing) {
-      await updateProduct.mutateAsync({ id: editing.id, ...payload });
-    } else {
-      await createProduct.mutateAsync(payload);
-    }
+    try {
+      if (editing) {
+        await updateProduct.mutateAsync({
+          id: editing.id,
+          expectedVersion: editing.version,
+          ...payload,
+        });
+      } else {
+        await createProduct.mutateAsync(payload);
+      }
 
-    closeForm();
+      closeForm();
+    } catch (error) {
+      // Reload the row so a retry sends the current version while the operator's
+      // typed values stay in the form (the drawer is keyed by product id only).
+      if (error.code === 'PRODUCT_CONFLICT' && editing) {
+        const result = await query.refetch();
+        const fresh = result.data?.data?.find((product) => product.id === editing.id);
+        if (fresh) setEditing(fresh);
+      }
+
+      throw error;
+    }
   };
 
   const handleDelete = async () => {
     setDeleteError('');
 
     try {
-      await deleteProduct.mutateAsync(deleting.id);
+      await deleteProduct.mutateAsync({ id: deleting.id, expectedVersion: deleting.version });
       setDeleting(null);
     } catch (error) {
-      setDeleteError(error.message || 'Produk tidak dapat dihapus.');
+      if (error.code === 'PRODUCT_CONFLICT') await query.refetch();
+      setDeleteError(deleteMessage(error));
     }
+  };
+
+  const resetFilters = () => {
+    setTerm('');
+    setVisibility('all');
+    setSort('newest');
+    setPage(1);
   };
 
   return (
@@ -169,10 +244,35 @@ export function ProductsPanel({ query, categories, brands }) {
           />
         </div>
 
+        <select
+          value={visibility}
+          onChange={(event) => setVisibility(event.target.value)}
+          aria-label="Filter tampilan produk"
+          className={filterSelect}
+        >
+          {VISIBILITY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={sort}
+          onChange={(event) => setSort(event.target.value)}
+          aria-label="Urutkan produk"
+          className={filterSelect}
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
         {!query.isPending && !query.isError && (
           <p className="text-spec text-ink-soft">
-            <span className="tabular">{filtered.length}</span>
-            {needle ? ` dari ${products.length}` : ''} produk
+            <span className="tabular">{total}</span> produk
           </p>
         )}
 
@@ -182,9 +282,9 @@ export function ProductsPanel({ query, categories, brands }) {
         </Button>
       </div>
 
-      {!canCreate && !query.isPending && (
+      {!canCreate && (
         <p className="mt-3 text-spec text-warning">
-          Kategori dan merek belum termuat, jadi produk baru belum bisa dibuat.
+          Kategori belum termuat, jadi produk baru belum bisa dibuat.
         </p>
       )}
 
@@ -204,7 +304,7 @@ export function ProductsPanel({ query, categories, brands }) {
         />
       )}
 
-      {!query.isPending && !query.isError && products.length === 0 && (
+      {!query.isPending && !query.isError && total === 0 && !filtered && (
         <div className="mt-6 border-y border-sand py-12 text-center">
           <h2 className="font-display text-heading text-ink">Belum ada produk</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-ink-soft">
@@ -216,56 +316,74 @@ export function ProductsPanel({ query, categories, brands }) {
         </div>
       )}
 
-      {!query.isPending && !query.isError && products.length > 0 && filtered.length === 0 && (
+      {!query.isPending && !query.isError && total === 0 && filtered && (
         <div className="mt-6 border-y border-sand py-10 text-center">
           <p className="text-sm text-ink-soft">
-            Tidak ada produk yang cocok dengan “{term.trim()}”.
+            Tidak ada produk yang cocok
+            {search ? ` dengan “${search}”` : ''}
+            {visibility === 'hidden'
+              ? ' di daftar produk yang disembunyikan.'
+              : visibility === 'active'
+                ? ' di daftar produk yang tampil.'
+                : '.'}
           </p>
-          <Button size="sm" variant="ghost" className="mt-2" onClick={() => setTerm('')}>
-            Bersihkan pencarian
+          <Button size="sm" variant="ghost" className="mt-2" onClick={resetFilters}>
+            Bersihkan pencarian dan filter
           </Button>
         </div>
       )}
 
-      {filtered.length > 0 && (
-        <div className="mt-6 min-w-0 overflow-x-auto">
-          <table className="w-full min-w-[19rem] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-sand text-left">
-                <th scope="col" className="py-2 pr-4 text-spec font-normal text-ink-soft">
-                  Produk
-                </th>
-                <th
-                  scope="col"
-                  className="hidden py-2 pr-4 text-spec font-normal text-ink-soft lg:table-cell"
-                >
-                  Kategori
-                </th>
-                <th
-                  scope="col"
-                  className="hidden py-2 pr-4 text-spec font-normal text-ink-soft sm:table-cell"
-                >
-                  Harga
-                </th>
-                <th scope="col" className="py-2 pr-4 text-spec font-normal text-ink-soft">
-                  Stok
-                </th>
-                <th
-                  scope="col"
-                  className="hidden py-2 pr-4 text-spec font-normal text-ink-soft md:table-cell"
-                >
-                  Status
-                </th>
-                <th scope="col" className="py-2 text-right text-spec font-normal text-ink-soft">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <ProductRows products={filtered} onEdit={openEdit} onDelete={setDeleting} />
-            </tbody>
-          </table>
-        </div>
+      {!query.isPending && !query.isError && products.length > 0 && (
+        <>
+          <div className="mt-6 min-w-0 overflow-x-auto">
+            <table className="w-full min-w-[19rem] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-sand text-left">
+                  <th scope="col" className="py-2 pr-4 text-spec font-normal text-ink-soft">
+                    Produk
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden py-2 pr-4 text-spec font-normal text-ink-soft lg:table-cell"
+                  >
+                    Kategori
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden py-2 pr-4 text-spec font-normal text-ink-soft sm:table-cell"
+                  >
+                    Harga
+                  </th>
+                  <th scope="col" className="py-2 pr-4 text-spec font-normal text-ink-soft">
+                    Stok
+                  </th>
+                  <th
+                    scope="col"
+                    className="hidden py-2 pr-4 text-spec font-normal text-ink-soft md:table-cell"
+                  >
+                    Status
+                  </th>
+                  <th scope="col" className="py-2 text-right text-spec font-normal text-ink-soft">
+                    Aksi
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <ProductRows products={products} onEdit={openEdit} onDelete={setDeleting} />
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination
+            page={page}
+            totalPages={meta?.totalPages ?? 1}
+            onChange={(nextPage) => {
+              setPage(nextPage);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="pt-8"
+          />
+        </>
       )}
 
       <Drawer

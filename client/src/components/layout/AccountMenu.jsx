@@ -14,7 +14,7 @@ const menuItem =
 /**
  * Header account control. Guests get a link to /masuk; signed-in users get
  * their initials and a small panel with the account links and the sign-out
- * action, which is the only place the mock session ends.
+ * action, which is the only place the session ends.
  *
  * It is a disclosure, not a `role="menu"`: the links stay in the tab order, so
  * no arrow-key handling is needed to keep it usable.

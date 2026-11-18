@@ -3,16 +3,16 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthShell } from '../components/auth/AuthShell.jsx';
 import { FormAlert } from '../components/ui/FormAlert.jsx';
 import { Button } from '../components/ui/Button.jsx';
-import { Checkbox, Input, PasswordInput } from '../components/ui/Form.jsx';
+import { Input, PasswordInput } from '../components/ui/Form.jsx';
 import { useAuth } from '../context/authContext.js';
 import { DEMO_ACCOUNTS } from '../lib/demoAccounts.js';
 import { focusFirstInvalid } from '../lib/focus.js';
 import { routes, safeRedirect } from '../lib/nav.js';
 import { validateLogin } from '../lib/validation.js';
 
-const emptyValues = { email: '', password: '', remember: false };
+const emptyValues = { email: '', password: '' };
 
-/** Mock-phase affordance: the reviewer can try both roles without registering. */
+/** Accounts seeded by `npm run db:seed`, so both roles can be tried at once. */
 function DemoAccounts({ onPick }) {
   return (
     <section aria-labelledby="akun-demo" className="mt-10 border-t border-sand pt-6">
@@ -79,7 +79,7 @@ export function LoginPage() {
   };
 
   const pickDemoAccount = (account) => {
-    setValues({ email: account.email, password: account.password, remember: false });
+    setValues({ email: account.email, password: account.password });
     setErrors({});
     setFormError('');
     document.getElementById('email')?.focus();
@@ -104,7 +104,6 @@ export function LoginPage() {
       await login({
         email: values.email.trim(),
         password: values.password,
-        remember: values.remember,
       });
     } catch (error) {
       setFormError(error.message || 'Tidak dapat masuk. Coba lagi.');
@@ -151,16 +150,6 @@ export function LoginPage() {
           error={errors.password}
           required
         />
-
-        <div className="pt-1">
-          <Checkbox
-            id="ingat-saya"
-            name="remember"
-            label="Ingat saya di perangkat ini"
-            checked={values.remember}
-            onChange={updateField('remember')}
-          />
-        </div>
 
         <Button type="submit" size="lg" fullWidth loading={submitting}>
           {submitting ? 'Memeriksa…' : 'Masuk'}

@@ -3,16 +3,15 @@ import { OrderStatusBadge } from '../../components/account/OrderStatusBadge.jsx'
 import { Badge } from '../../components/ui/Badge.jsx';
 import { ErrorState } from '../../components/ui/EmptyState.jsx';
 import { Skeleton } from '../../components/ui/Spinner.jsx';
-import { useAdminOrders } from '../../hooks/useAdmin.js';
-import { useProducts } from '../../hooks/useCatalog.js';
+import { useAdminOrders, useAdminProducts } from '../../hooks/useAdmin.js';
 import { formatDate, formatIDR } from '../../lib/format.js';
 import { routes } from '../../lib/nav.js';
 import { LOW_STOCK_THRESHOLD, stockStatus } from '../../lib/stock.js';
 import { cn } from '../../lib/cn.js';
 
-function Figures({ orders, products, loading }) {
-  const processing = orders.filter((order) => order.status === 'processing').length;
-  const shipped = orders.filter((order) => order.status === 'shipped').length;
+function Figures({ orders, counts, products, loading }) {
+  const processing = counts?.processing ?? 0;
+  const shipped = counts?.shipped ?? 0;
   const revenue = orders
     .filter((order) => order.status !== 'cancelled')
     .reduce((sum, order) => sum + order.total, 0);
@@ -62,7 +61,11 @@ function RecentOrders({ query }) {
 
   if (query.isError) {
     return (
-      <ErrorState className="py-10" description="Pesanan tidak dapat dimuat." onRetry={query.refetch} />
+      <ErrorState
+        className="py-10"
+        description="Pesanan tidak dapat dimuat."
+        onRetry={query.refetch}
+      />
     );
   }
 
@@ -85,7 +88,10 @@ function RecentOrders({ query }) {
             <th scope="col" className="py-2 pr-4 text-spec font-normal text-ink-soft">
               Pesanan
             </th>
-            <th scope="col" className="hidden py-2 pr-4 text-spec font-normal text-ink-soft sm:table-cell">
+            <th
+              scope="col"
+              className="hidden py-2 pr-4 text-spec font-normal text-ink-soft sm:table-cell"
+            >
               Pelanggan
             </th>
             <th scope="col" className="py-2 pr-4 text-spec font-normal text-ink-soft">
@@ -179,8 +185,8 @@ function LowStock({ query }) {
 }
 
 export function AdminDashboardPage() {
-  const ordersQuery = useAdminOrders();
-  const productsQuery = useProducts({ limit: 100 });
+  const ordersQuery = useAdminOrders({ limit: 100 });
+  const productsQuery = useAdminProducts({ limit: 100 });
 
   const orders = ordersQuery.data?.data ?? [];
   const products = productsQuery.data?.data ?? [];
@@ -196,7 +202,12 @@ export function AdminDashboardPage() {
         </p>
       </header>
 
-      <Figures orders={orders} products={products} loading={loading} />
+      <Figures
+        orders={orders}
+        counts={ordersQuery.data?.meta?.statusCounts}
+        products={products}
+        loading={loading}
+      />
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-14">
         <section aria-labelledby="pesanan-terbaru" className="min-w-0">
