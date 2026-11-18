@@ -1,10 +1,10 @@
 # 03h – Admin layout and dashboard
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 3b – Admin frontend
 - **Date:** 2026-11-16
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -100,4 +100,14 @@ Screenshot evidence in `.reviews/assets/03h/`: `desktop-admin-dashboard`,
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Verdict: Approved.** No blocking issue was found in the Phase 03h admin shell/dashboard scope.
+
+Independent verification performed with `npm run dev` and Chrome:
+
+- Guest `/admin` redirected to `/masuk?redirect=%2Fadmin`; customer login produced the explicit forbidden screen with both recovery actions; `Masuk sebagai admin` returned to the guarded login destination.
+- Admin login rendered the separate panel frame without the storefront search/navigation. The four figures, five recent orders and five lowest-stock entries rendered, with working order links and the shared status/stock presentation.
+- The admin account menu showed the Admin badge and `Panel toko`; the rail/topbar provided `Lihat toko` and sign-out, and sign-out landed on `/`.
+- At 390 px the mobile navigation and active Ringkasan item were present and the document had no horizontal page overflow. The supplied desktop/mobile screenshots were also checked.
+- Code inspection confirms revenue excludes cancelled orders, processing/shipped figures use the status counts, and both stock displays use the shared threshold and five-item low-stock ordering.
+
+Open questions: whether revenue should mean only completed orders and whether low-stock thresholds should vary by product are product/reporting policies. The current definitions are consistent and clearly implemented; changing them is not required for this frontend step.

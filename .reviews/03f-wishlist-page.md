@@ -1,10 +1,10 @@
 # 03f – Wishlist page
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 3 – Frontend pages
 - **Date:** 2026-11-16
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -100,4 +100,15 @@ Screenshot evidence in `.reviews/assets/03f/`: `desktop-wishlist`,
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Verdict: Approved.** No blocking issue was found in the Phase 03f wishlist scope.
+
+Independent verification performed:
+
+- Ran `npm run dev` and exercised `/toko`, `/favorit`, product detail and `/keranjang` in Chrome at desktop and 390 px widths.
+- Verified a guest heart redirects to `/masuk?redirect=%2Ftoko` and login returns to the shop.
+- Added two products through shop-card hearts; both appeared once with imagery, specifications, prices, availability and colour choices.
+- Verified move-to-cart removes the wishlist row, adds the selected product to the cart and shows `Lihat keranjang`; verified product-page hearts resynchronize and restore the saved state.
+- Verified direct removal feedback, the empty state and no mobile horizontal overflow. Temporary wishlist/cart data was cleaned up.
+- Reviewed the supplied screenshots for the original three-item mock state, list/product heart placements and mobile presentation. Code inspection confirms sold-out actions are disabled, single-option variants are not rendered as chips, hidden products are filtered by the service, and adds are idempotent.
+
+The open guest-wishlist and move-versus-copy questions are product-policy choices. Redirect-to-login and delete-and-move are internally consistent with this step and the later API; changing either would be a separate product decision, not a blocker here.

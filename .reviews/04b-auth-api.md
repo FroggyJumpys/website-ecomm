@@ -1,10 +1,10 @@
 # 04b – Auth API
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 4 – Backend
 - **Date:** 2026-05-20
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -70,19 +70,19 @@ npm run lint
 
 Checklist the reviewer can tick:
 
-- [ ] `npm test` passes with the database container stopped (unit tests never connect)
-- [ ] `npm run test:integration` reports 37 passed; running it twice gives the same result
-- [ ] `TEST_DATABASE_URL=postgres://ba_dekor:ba_dekor@localhost:5433/ba_dekor npm run test:integration` refuses to start with "must end in \"_test\""
-- [ ] `npm run db:seed` still reports 2 users, 3 addresses, 6 categories, 4 brands, 12 products, 4 orders — the tests never touched the development database
-- [ ] `curl -i -X POST localhost:4000/api/v1/auth/login -H "Content-Type: application/json" -d '{"email":"sari@badekor.id","password":"rahasia123"}'` returns `200` with a `ba_dekor_session` cookie that is `HttpOnly`, `SameSite=Lax`, `Path=/`
-- [ ] The same call with `admin@badekor.id` returns `role: "admin"`
-- [ ] With that cookie, `GET /api/v1/auth/me` returns the same user; after `POST /api/v1/auth/logout` it returns `401`
-- [ ] `POST /api/v1/auth/login` with a wrong password returns `401 INVALID_CREDENTIALS`, and an unknown email returns the identical message
-- [ ] `POST /api/v1/auth/register` with `{"name":"A","email":"bad","phone":"1","password":"short"}` returns `422 VALIDATION_ERROR` with `details.field`
-- [ ] Registering an existing email returns `409 EMAIL_TAKEN` with `details.field = "email"`
-- [ ] Registering with `"role": "admin"` in the body still creates a `customer`
-- [ ] No response body contains `password`, `passwordHash` or a token
-- [ ] 11 rapid failed logins from one IP return `429 TOO_MANY_ATTEMPTS`
+- [x] `npm test` passes with the database container stopped (unit tests never connect)
+- [x] `npm run test:integration` reports 37 passed; running it twice gives the same result
+- [x] `TEST_DATABASE_URL=postgres://ba_dekor:ba_dekor@localhost:5433/ba_dekor npm run test:integration` refuses to start with "must end in \"_test\""
+- [x] `npm run db:seed` still reports 2 users, 3 addresses, 6 categories, 4 brands, 12 products, 4 orders — the tests never touched the development database
+- [x] `curl -i -X POST localhost:4000/api/v1/auth/login -H "Content-Type: application/json" -d '{"email":"sari@badekor.id","password":"rahasia123"}'` returns `200` with a `ba_dekor_session` cookie that is `HttpOnly`, `SameSite=Lax`, `Path=/`
+- [x] The same call with `admin@badekor.id` returns `role: "admin"`
+- [x] With that cookie, `GET /api/v1/auth/me` returns the same user; after `POST /api/v1/auth/logout` it returns `401`
+- [x] `POST /api/v1/auth/login` with a wrong password returns `401 INVALID_CREDENTIALS`, and an unknown email returns the identical message
+- [x] `POST /api/v1/auth/register` with `{"name":"A","email":"bad","phone":"1","password":"short"}` returns `422 VALIDATION_ERROR` with `details.field`
+- [x] Registering an existing email returns `409 EMAIL_TAKEN` with `details.field = "email"`
+- [x] Registering with `"role": "admin"` in the body still creates a `customer`
+- [x] No response body contains `password`, `passwordHash` or a token
+- [x] 11 rapid failed logins from one IP return `429 TOO_MANY_ATTEMPTS`
 
 ## Decisions and trade-offs
 
@@ -168,4 +168,26 @@ Checklist the reviewer can tick:
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved on 2026-11-18.** Ran `npm test` with `ba_dekor-db` stopped: all 18 current unit files
+and 283 tests passed without a database connection, then restarted the container. Ran the current
+integration suite twice; both runs passed all 30 files / 518 tests (the original 37 tests have been
+extended by later modules). The unsafe `TEST_DATABASE_URL` probe was rejected before any test could
+run; Vitest reported zero executed tests and failures loading the integration files, as intended.
+The development fixtures and later review rows remained intact.
+
+Exercised the live API at `http://localhost:4000`: customer and admin login returned the correct
+public user and role; the session cookie had `HttpOnly`, `SameSite=Lax` and `Path=/`; `/auth/me`
+returned the same user; logout cleared the cookie and a subsequent `/auth/me` returned 401. Wrong
+and unknown credentials returned byte-identical error bodies. Invalid registration returned 422
+with field details, duplicate registration returned 409 `EMAIL_TAKEN`, and a registration body
+requesting an admin role created a customer. No response body exposed password material or the
+session token. After restarting to clear the limiter, the first ten failed logins returned 401 and
+the eleventh returned 429 `TOO_MANY_ATTEMPTS`.
+
+The temporary registered user and cookie files were removed, and the reviewer-started server was
+stopped. Open questions are resolved for this project: the seven-day cookie lifetime and split unit
+/ integration commands are acceptable; manual test-database provisioning is documented and its
+safety guard works; the in-memory IP limiter is sufficient at this stage; Phase 5b correctly describes
+the oldest-first review backlog. Password-change token revocation has since been implemented by the
+later user module, while logout remains a stateless cookie clear as documented. No blocking auth
+defect found.

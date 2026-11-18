@@ -1,6 +1,7 @@
 # 04f — Cart API
 
-**Status:** Awaiting review
+**Status:** Approved
+**Reviewer:** Kimi (Moonshot AI, AI reviewer)
 **Depends on:** 04b (Auth API), 04c (Catalog API), 04a (`tbl_keranjang` schema)
 **Approved plan:** GET/DELETE `/cart`, POST `/cart/items`, PATCH/DELETE `/cart/items/:id`; guest
 cart identified by a cookie; merge on sign-in with **"keep what stock allows and report the
@@ -246,4 +247,27 @@ Throwaway accounts and guest carts deleted; seed counts confirmed unchanged at 2
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved on 2026-11-18.** Independently exercised the live API with separate session and guest
+cookie jars. An empty read minted no cookie; the first successful add issued an HttpOnly guest
+cookie and the cart survived a reload. Same-variant adds combined, another colour remained a
+separate line, and quantities/totals were correct. A wrong sign-in password returned 401 without
+consuming or changing the guest cart. Successful sign-in merged the cart, combined the shared
+variant, cleared the guest cookie and returned `meta.cartMerge`; signing out exposed an empty
+anonymous cart while the account cart persisted, and the next sign-in did not merge twice.
+
+Over-stock add returned 409 `INSUFFICIENT_STOCK`; unknown products, invalid/missing variants,
+string ids, zero quantities and malformed route ids returned the documented 404/422 responses.
+Another browser could neither patch nor delete an account line, and its quantity remained intact.
+For the adjustment scenario, the account held two units and a guest held three; after stock changed
+from five to four, sign-in kept four total and reported the guest reduction from three to two with
+`INSUFFICIENT_STOCK`. Stock was restored to five immediately afterwards. (One reviewer assertion
+initially expected three for a fixture that actually contained four; the API's four was correct.)
+
+The current complete unit and integration suites and lint passed during this review sequence,
+including the cart validator/token/query/merge/API and concurrency tests. The disposable account,
+account cart and review guest carts were removed, and the review server stopped.
+
+The design questions retain the current contract: server-side cookie carts match the schema and
+cross-reload requirement; POST intentionally adds while PATCH sets absolute quantity; unavailable
+lines stay visible and repairable; server-side expiry can be a later cleanup job; `meta.cartMerge`
+contains enough detail for integration messaging. No blocking cart or merge defect found.

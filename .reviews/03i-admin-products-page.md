@@ -1,10 +1,10 @@
 # 03i – Admin products, categories and brands
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 3b – Admin frontend
 - **Date:** 2026-11-16
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -110,4 +110,15 @@ Screenshot evidence in `.reviews/assets/03i/`: `desktop-admin-products`,
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Verdict: Approved.** No blocking issue was found in the Phase 03i catalogue-management scope.
+
+Independent verification performed with `npm run dev` and Chrome:
+
+- The integrated catalogue currently lists 13 products (the original Phase 03 fixture had 12); table fields, search, product counts and URL-backed tabs rendered correctly.
+- Product empty-form validation marked all seven required controls. A separate real-keyboard/focus run confirmed consecutive typing remains in the field and failed validation focuses `produk-nama`.
+- Created a unique temporary product, opened its prefilled edit form, changed its price, hid it and exercised deletion confirmation. The current integrated edit/hide behaviour worked; temporary records were removed.
+- Created, edited and deleted temporary category and brand records; both tables exposed slug/product-count/action columns and the forms saved successfully.
+- At 390 px the drawer fit the viewport and the document had no horizontal page overflow; the table owns its own horizontal scrolling.
+- Reviewed the supplied original screenshots for the 12-product mock state, `Kursi Uji Coba` creation and storefront appearance, deletion confirmation, taxonomy rename/in-use behaviour and mobile layouts. Code inspection confirms shared catalogue invalidation, automatic unique slugs, taxonomy rename propagation and in-use deletion guards.
+
+Open questions: retaining a hidden product's stored wishlist relation while filtering it from display is consistent with hide-not-delete. Upload/drag-drop UX and any stronger wishlist removal policy remain product/backend decisions; neither blocks this mock-frontend step.

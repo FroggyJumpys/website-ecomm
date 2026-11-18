@@ -1,10 +1,10 @@
 # 03g – Cart and checkout
 
-- **Status:** Awaiting review
+- **Status:** Changes requested
 - **Phase:** 3 – Frontend pages
 - **Date:** 2026-11-16
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -109,4 +109,23 @@ Screenshot evidence in `.reviews/assets/03g/`: `desktop-cart`,
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Verdict: Changes requested.** The checkout validation does not move focus to the terms checkbox after a terms-only validation failure, contrary to the step's checklist.
+
+### Reproduction
+
+1. Add a product, sign in and open `/pembayaran` with a saved address and the default shipping/payment selections.
+2. Leave `Saya menyetujui syarat pemesanan ...` unchecked.
+3. Submit `Buat pesanan`.
+4. The correct error, `Centang persetujuan untuk melanjutkan.`, appears, but `document.activeElement.id` is empty (focus remains on the submit button), not `setuju-syarat`.
+
+`focusFirstInvalid(formRef.current)` only searches the form around the shipping/payment sections. The terms control is rendered in the receipt aside, outside that ref, so the invalid checkbox cannot be found. The address picker is also outside that form ref; ensure its validation error receives equivalent focus handling. **Required revision:** make the validation-focus scope include all invalid checkout controls and verify both terms and missing-address cases.
+
+Other independent checks passed:
+
+- Ran `npm run dev`; exercised product → guest cart → guarded checkout → order confirmation.
+- Two colour variants created separate cart lines; repeating the same variant increased its quantity. Minimum quantity and stock limits are enforced by the stepper/cart logic.
+- Cart subtotal, shipping-later note, guest redirect and cart survival across login worked.
+- Saved/new-address UI, shipping price changes (Rp 85.000 / Rp 250.000 / free), terms error copy and 390 px layout were present; no mobile horizontal overflow.
+- Created `BD-2026-1066`: the cart cleared, confirmation showed items, totals and BCA instructions, the order appeared in `/akun/pesanan`, and an admin search found it in `/admin/pesanan`.
+
+Open questions: shipping at checkout and guest-cart merge are consistent with the documented scope and later API. Displaying a from-price in the cart or changing merge policy would be a product decision, not a blocker.

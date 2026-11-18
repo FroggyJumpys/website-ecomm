@@ -1,10 +1,10 @@
 # 05 – Frontend integration
 
-- **Status:** Awaiting review <!-- Awaiting review | Changes requested | Approved -->
+- **Status:** Changes requested
 - **Phase:** 5 – Integration
 - **Date:** 2026-11-18
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -108,20 +108,21 @@ URLs: storefront <http://localhost:5173/>, collection <http://localhost:5173/tok
 
 Checklist the reviewer can tick:
 
-- [ ] `client/src/mocks/` does not exist and no source references `VITE_USE_MOCKS`.
-- [ ] A guest can add two variants of one product, reload, and still see both lines; the header count matches.
-- [ ] Signing in merges the guest cart into the account (no duplicate lines lost without a stock message).
-- [ ] Adding beyond stock shows the API's `INSUFFICIENT_STOCK` message and does not change the count.
-- [ ] Checkout creates one order, empties the cart, shows the confirmation page and the order in `/akun/pesanan`.
-- [ ] The customer history chips match `meta.statusCounts` and paging moves through the history.
-- [ ] `/admin/pesanan` searches server-side (order number, customer name, email), filters by status and pages.
-- [ ] `/admin/pesanan/:orderNumber` offers only `processing → shipped|cancelled` and `shipped → completed|cancelled`; terminal orders explain why there is no form.
-- [ ] A tracking number set on the shipped move persists and clearing it removes it.
-- [ ] Editing a product twice in two tabs produces `409 PRODUCT_CONFLICT` and the panel reloads the row; the typed values survive the reload.
-- [ ] Uploading a JPEG/PNG/WebP image appends a `/api/v1/media/catalog/...webp` path and the preview renders.
-- [ ] Hiding a product removes it from the storefront but keeps it in the admin list with `visibility=all`.
-- [ ] Deleting a category that still has products explains `TAXONOMY_IN_USE`.
+- [x] `client/src/mocks/` does not exist and no source references `VITE_USE_MOCKS`.
+- [x] A guest can add two variants of one product, reload, and still see both lines; the header count matches.
+- [x] Signing in merges the guest cart into the account (no duplicate lines lost without a stock message).
+- [x] Adding beyond stock shows the API's `INSUFFICIENT_STOCK` message and does not change the count.
+- [x] Checkout creates one order, empties the cart, shows the confirmation page and the order in `/akun/pesanan`.
+- [x] The customer history chips match `meta.statusCounts` and paging moves through the history.
+- [x] `/admin/pesanan` searches server-side (order number, customer name, email), filters by status and pages.
+- [x] `/admin/pesanan/:orderNumber` offers only `processing → shipped|cancelled` and `shipped → completed|cancelled`; terminal orders explain why there is no form.
+- [x] A tracking number set on the shipped move persists and clearing it removes it.
+- [x] Editing a product twice in two tabs produces `409 PRODUCT_CONFLICT` and the panel reloads the row; the typed values survive the reload.
+- [x] Uploading a JPEG/PNG/WebP image appends a `/api/v1/media/catalog/...webp` path and the preview renders.
+- [x] Hiding a product removes it from the storefront but keeps it in the admin list with `visibility=all`.
+- [x] Deleting a category that still has products explains `TAXONOMY_IN_USE`.
 - [ ] Stopping the API turns every list into its error state with a working retry; empty filters show empty states.
+- [ ] A zero-match admin order search keeps the search/reset controls reachable and shows the no-match state.
 
 ## Verification actually run
 
@@ -248,4 +249,55 @@ click-through a reviewer should do with the browser open.
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Changes requested on 2026-11-18.**
+
+### Blocking finding
+
+**A zero-match admin order search strands the operator without search or reset controls.** In a real
+Chrome 158 browser at `/admin/pesanan`, entering `no-such-order-review` produced only the generic
+`Belum ada pesanan` empty state. The search input disappeared, `Tidak ada pesanan yang cocok` was
+not shown, and `Tampilkan semua pesanan` was unavailable. In `AdminOrdersPage.jsx`, `hasAny` is
+`meta.statusCounts.all > 0`; when a search has zero matches, the condition at lines 123–183 removes
+the search/filter controls and the branch at lines 201–208 wins before the no-match/reset branch at
+210–225. The operator must reload or navigate away to recover.
+
+**Required revision:** distinguish an empty catalogue of orders from an active search/filter with
+zero results. Keep the search controls mounted whenever a search/filter is active, render the
+existing no-match copy and working reset action, and cover both zero-match search recovery and the
+truly empty-order baseline with a focused test or reproducible browser verification. This is the
+Phase 05 form of the integration difference noted during the historical 03j review.
+
+### Verified before the finding
+
+Ran `npm run lint`, `npm test` (18 unit files / 283 tests), `npm run test:integration` twice (30
+files / 518 tests each), `npm run build` (known 549.45 kB warning), `npm audit --workspace server`
+(0 vulnerabilities), and `git diff --check` (no whitespace errors). Confirmed `client/src/mocks/`
+is absent and no client source references the mock switch.
+
+Browser verification used the real Vite/Express servers, not mocks. A guest added two colour
+variants, reloaded and retained both with the correct count; signing into a disposable account merged
+them. An over-stock add displayed the API message without changing the count. Browser checkout
+created `BD-2026-1069`, displayed its confirmation, emptied the cart and added it to history. With
+additional disposable orders, customer chips reported 11 and page two showed the remaining order.
+Admin orders paginated server-side (21 rows over two pages), searched and filtered. The order form
+offered only legal transitions; tracking was set on shipment and cleared on completion; the terminal
+explanation rendered and the customer saw the same final state.
+
+A PNG upload through the product drawer returned `/api/v1/media/catalog/6658337e-44b4-44d9-b258-8fe3fdc8c2f1.webp`,
+appended it and rendered the preview. A simulated second operator advanced the product version;
+the open form received `PRODUCT_CONFLICT`, retained its typed name, refreshed the version and saved
+successfully on retry. Hiding removed public detail while retaining the admin row; product deletion
+and actionable in-use category errors worked. Public shop/cart and protected product/order lists
+showed error states when their requests failed, and retry restored data after the API restarted.
+Empty storefront and admin-product searches also rendered their no-match states.
+
+All 16 review orders and the disposable account/address/cart were removed, product 3 stock was
+restored to 18, the uploaded WebP and temporary browser harness/profile were deleted, and no
+reviewer-started listeners remain on ports 4000, 5173 or 9449. The pre-existing 03d review account
+was not touched.
+
+Open integration choices are acceptable as scoped: keep the seeded demo panel and fixed session
+lifetime; category covers may remain typed paths; ten customer orders per page is usable; preserve
+the current conflict recovery and sign-out cache refresh; one-click unavailable-line removal is
+optional polish. Exact dashboard aggregates and a lean admin order summary belong in step 09. The
+single empty-search recovery defect prevents approval until its revision is verified.

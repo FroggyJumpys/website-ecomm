@@ -1,10 +1,10 @@
 # 03d – Auth pages
 
-- **Status:** Awaiting review
+- **Status:** Changes requested
 - **Phase:** 3 – Frontend pages
 - **Date:** 2026-11-12
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -189,4 +189,41 @@ Screenshot evidence in `.reviews/assets/03d/`: `desktop-login`, `desktop-login-v
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+### Review — 2026-11-18
+
+**Verdict: Changes requested.** Validation, authentication, registration, guarded redirects and account-menu behaviour otherwise work against the current API, but sign-out does not satisfy the explicitly checked destination. Only this review note was edited; no application code was changed.
+
+#### Required change
+
+1. **Make sign-out finish on the home page rather than the guarded page's sign-in redirect.** In a fresh browser session, signing in as the customer, opening `/akun`, opening the header account disclosure and choosing “Keluar” produced `/masuk?redirect=%2Fakun`. A second focused run reproduced this immediately and it remained there after two seconds. This contradicts both the checklist and the intended race fix in `AccountMenu`. Ensure the current async/API-backed logout path cannot leave the user on the guard redirect, and apply the same verified behaviour to the account-layout and mobile-header sign-out actions. Add verification evidence for the final path and signed-out header state.
+
+#### Evidence
+
+- Ran `npx eslint client/src server/src`, `npm run build --workspace=client`, and `npm test` successfully. Client has no tests; all 18 current server unit-test files passed (283 tests).
+- Ran `npm run dev` and independently exercised the auth screens against the seeded API:
+  - `/akun` while signed out redirected to `/masuk?redirect=%2Fakun` and displayed the guard explanation.
+  - Empty sign-in submitted two invalid fields and focused `email`; wrong credentials produced “Email atau kata sandi salah.”
+  - Password reveal changed the input to text and set `aria-pressed="true"`.
+  - The customer demo picker filled both fields without navigating or authenticating.
+  - Correct sign-in landed on `/akun`; opening `/masuk` while authenticated returned to `/akun`.
+  - The account disclosure showed the customer identity, account links and “Keluar.”
+  - Empty registration produced six invalid fields and focused `nama`.
+  - Registering with the existing customer email marked the email field invalid and displayed the duplicate-account message.
+  - Registering a unique test account succeeded, authenticated it and landed on `/akun`.
+  - At 390×844 the authenticated route had no horizontal overflow; the supplied historical mobile guest/form/menu screenshots were also reviewed.
+- Inspected the auth provider/session restoration, route guard, safe redirect helper, form error mapping, validators (including the 72-byte-related password limit), password input and account disclosure. The original mock-session screenshots document the now-removed “remember me” UI.
+- The required sign-out failure above was observed twice, including a dedicated run whose final URL was `/masuk?redirect=%2Fakun`.
+
+#### Open questions
+
+1. Keep the demo picker visible for local development and review, then remove or explicitly protect it for deployment in step 10.
+2. Phase 05 has deliberately removed the client-side “remember me” option and lets the server own cookie lifetime. Do not restore the old mock-only behaviour without a new product/API decision.
+3. `/akun` is now a real page and remains the appropriate default post-auth destination; valid guarded redirects take precedence.
+4. Keep the eight-character letter-plus-number policy aligned with the server schema, including its maximum-length handling.
+5. Registration phone normalisation to `08…` is appropriate. Checkout/order use and pre-fill are checked in their owning steps.
+6. `/pembayaran` is correctly behind `RequireAuth` in the current route table.
+
+#### Non-blocking observations
+
+- Password reset, OAuth and legal-document pages require separate product scope; omitting dead controls is correct.
+- Frontend tests and the full accessibility pass remain deferred to steps 07 and 08.

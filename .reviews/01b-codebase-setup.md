@@ -1,10 +1,10 @@
 # 01b – Codebase setup
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 1 – Codebase setup
 - **Date:** 2026-11-12
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -128,4 +128,32 @@ Not verified here, because it depends on your machine:
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+### Review — 2026-11-18
+
+**Verdict: Approved.** The workspace scaffold, development proxy, health endpoints, migration command and documented checks are working. This approval covers step 01b only; later storefront and API features visible in the current tree were not reviewed here. Only this review note was edited; no application code was changed.
+
+#### Evidence
+
+- Ran `npm install` successfully. It audited 476 packages in the current, later-stage tree. The lockfile metadata side effect from this reviewer run was restored afterward.
+- Ran `npm run lint` successfully with no errors.
+- Ran `npm run build` successfully with Vite 8.3.8. The current client produced a 66.27 kB CSS file and a 549.45 kB JavaScript file; Vite emitted a chunk-size warning, which is a later performance concern rather than a scaffold failure.
+- Ran `npm test` successfully: the client exited cleanly with no tests, and all 18 current server unit-test files passed (283 tests), including the two health/404 tests named by this note. The larger count reflects later phases.
+- Ran `npm run dev` with a bounded reviewer harness and stopped the process tree afterward. Confirmed all of the following:
+  - `GET http://localhost:4000/api/v1/health` → 200 with `status: "ok"`.
+  - `GET http://localhost:5173/api/v1/health` → 200 through the Vite proxy.
+  - `GET http://localhost:5173/` → 200 and serves the client HTML containing the root entry point.
+  - `GET http://localhost:4000/api/v1/health/db` → 200 with `database: "up"` using the existing database.
+- Ran `docker compose config` successfully. The literal `docker compose up -d db` first encountered a name conflict because the existing healthy `ba_dekor-db` container belongs to the Compose project `ecomm-web`, while the current directory defaults to project `website-ecomm`. Re-ran `docker compose -p ecomm-web up -d db` successfully without removing or recreating the database, and confirmed it is healthy on host port 5433. A first-time, clean-machine Docker creation was therefore not tested, but the compose configuration and existing database were exercised.
+- Ran `npm run db:migrate` successfully: 0 migrations applied and 8 already up to date in the current later-stage database.
+- Inspected the workspace manifests, ESLint and Vite configuration, Compose file, environment validation, database pool and migration runner, Express middleware and routes, health tests, client entry files, ignore rules and README.
+
+#### Open questions
+
+1. The `client/` + `server/` npm-workspace layout and root scripts are technically sound and consistent with `AGENTS.md`. Any course-specific submission packaging remains a team decision, not a code blocker.
+2. Docker Compose is acceptable for local PostgreSQL and its database/readiness path was verified. A local PostgreSQL installation is also acceptable when `DATABASE_URL` and the published port are configured consistently. Be aware that the fixed container name may require a matching Compose project name when moving an existing checkout; no container was removed during review.
+3. Delete the temporary health screen after step 02 as planned. The API health endpoints remain available, so a separate storefront status page is unnecessary for this step.
+
+#### Non-blocking observations
+
+- `npm install` reported 10 high-severity advisories in the current development-tool dependency graph, centred on the `picomatch`/`chokidar`/`tinyglobby` chain. No automatic downgrade or lockfile fix was applied. Track dependency remediation during security hardening; these advisories did not prevent any documented setup, lint, build, test or runtime check from passing.
+- The production chunk-size warning belongs to the later performance/code-splitting work, not this scaffold review.

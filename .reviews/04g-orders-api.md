@@ -1,10 +1,10 @@
 # 04g — Orders API
 
-- **Status:** Awaiting review <!-- Awaiting review | Changes requested | Approved -->
+- **Status:** Approved
 - **Phase:** 4 – Backend
 - **Date:** 2026-11-17
 - **Author:** agent / opencode
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -195,4 +195,25 @@ counts (2 users, 3 addresses, 4 orders, 0 carts).
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved on 2026-11-18.** Ran a live checkout with two disposable customers and an owned address.
+Adding one product and checking out with `kargo` / `bni-va` returned 201 and `BD-2026-1067`; shipping
+cost, payment label, address snapshot and item snapshot were correct, and no owner/idempotency
+internals were exposed. Repeating the same key and body returned 200 with `replayed: true` and the
+same order rather than creating another. Stock changed from 6 to 5 and the cart emptied.
+
+History returned the new order with `statusCounts.all = 1`; detail exactly matched the creation
+representation. A second customer received 404 for its order number and had an empty history.
+Malformed order numbers and missing idempotency headers returned field-scoped 422; changing the body
+under the used key returned 409 `IDEMPOTENCY_CONFLICT`; checkout with an empty cart returned 400;
+and order creation without a session returned 401.
+
+The current complete unit and integration suites and lint passed during this review sequence,
+including checkout rollback, per-product stock aggregation, exact money, snapshot reads,
+idempotency, contention and order API tests. After verification, the review order was deleted, the
+product stock restored to 6, both disposable accounts and their dependent data removed, and the
+review server stopped.
+
+The documented policy choices are retained: checkout requires idempotency because duplicate orders
+are worse than requiring a header; stock failure rejects the whole order rather than silently
+reducing quantities; one global sequence avoids year-boundary collisions; and full-history status
+counts correctly support filter chips. No blocking checkout/order defect found.

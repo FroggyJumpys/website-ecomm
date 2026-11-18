@@ -1,10 +1,10 @@
 # 04d – User API
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 4 – Backend
 - **Date:** 2026-05-20
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -56,20 +56,20 @@ npm run lint
 
 Sign in as `sari@badekor.id` / `rahasia123`, then tick:
 
-- [ ] `PATCH /api/v1/users/me` with `{"name":"Sari W."}` returns `200` and `/auth/me` shows the new name
-- [ ] Patching with another account's email returns `409 EMAIL_TAKEN` with `details.field = "email"`
-- [ ] Patching with `{}` returns `422`, and `role: "admin"` in the body does not change the role
-- [ ] `POST /api/v1/users/me/password` with the right current password returns `200`, the session still works, the new password signs in and the old one returns `401`
-- [ ] A wrong current password returns `400 INVALID_PASSWORD`; reusing the current one returns `400 SAME_PASSWORD`
-- [ ] Six rapid password attempts return `429 TOO_MANY_ATTEMPTS`
-- [ ] `GET /api/v1/users/me/addresses` returns Sari's two seeded addresses, default first
-- [ ] Creating the first address on a fresh account makes it the default even with `isDefault: false`
-- [ ] Creating a second address with `isDefault: true` leaves exactly one default
-- [ ] Deleting the default promotes the oldest remaining address
-- [ ] Another customer's address id returns `404 ADDRESS_NOT_FOUND` for PATCH, DELETE and `/default`, and their row is unchanged
-- [ ] `/users/me/addresses/abc` returns `422` with `details.field = "id"`, without a database error
-- [ ] Every `/users/*` route returns `401` without the cookie
-- [ ] `GET /api/v1/products` and `/api/v1/health` still work unauthenticated
+- [x] `PATCH /api/v1/users/me` with `{"name":"Sari W."}` returns `200` and `/auth/me` shows the new name
+- [x] Patching with another account's email returns `409 EMAIL_TAKEN` with `details.field = "email"`
+- [x] Patching with `{}` returns `422`, and `role: "admin"` in the body does not change the role
+- [x] `POST /api/v1/users/me/password` with the right current password returns `200`, the session still works, the new password signs in and the old one returns `401`
+- [x] A wrong current password returns `400 INVALID_PASSWORD`; reusing the current one returns `400 SAME_PASSWORD`
+- [x] Six rapid password attempts return `429 TOO_MANY_ATTEMPTS`
+- [x] `GET /api/v1/users/me/addresses` returns Sari's two seeded addresses, default first
+- [x] Creating the first address on a fresh account makes it the default even with `isDefault: false`
+- [x] Creating a second address with `isDefault: true` leaves exactly one default
+- [x] Deleting the default promotes the oldest remaining address
+- [x] Another customer's address id returns `404 ADDRESS_NOT_FOUND` for PATCH, DELETE and `/default`, and their row is unchanged
+- [x] `/users/me/addresses/abc` returns `422` with `details.field = "id"`, without a database error
+- [x] Every `/users/*` route returns `401` without the cookie
+- [x] `GET /api/v1/products` and `/api/v1/health` still work unauthenticated
 
 ## Decisions and trade-offs
 
@@ -146,7 +146,31 @@ Sign in as `sari@badekor.id` / `rahasia123`, then tick:
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved, including Revision 1, on 2026-11-18.** Used a disposable account against the live API
+so Sari's profile, password and addresses were not modified. Verified unauthenticated 401s, customer
+role retention, profile changes visible through `/auth/me`, empty-patch 422, duplicate-email 409,
+and the Revision 1 email-change rules (missing password 422, wrong password 400, correct password
+200, no password echo).
+
+Address checks passed end to end: the first address became default despite `isDefault: false`; a
+second default left exactly one default and sorted first; clearing the current default promoted the
+oldest other address; deleting that default promoted the remaining address. Another customer's real
+address id returned the same 404 for PATCH, DELETE and `/default`, and a follow-up database query
+confirmed that row was unchanged. A nonnumeric id returned field-scoped 422. Public health and
+catalogue routes remained accessible.
+
+Password verification returned `INVALID_PASSWORD` and `SAME_PASSWORD` as documented. A successful
+change kept the acting session alive, revoked a separately authenticated device, rejected the old
+password and accepted the new one. After restarting to clear the limiter, five wrong attempts
+returned 400 and the sixth returned 429. The disposable account (and its remaining address through
+the foreign key) was deleted and the review server stopped.
+
+The complete current unit/integration suites and lint passed during this review sequence, including
+the dedicated address-concurrency, profile, session-revocation and user API tests. Open questions
+4–6 are resolved as follows: retain 404 to avoid exposing ownership; the per-account five-attempt
+limiter is acceptable for this project; malformed JSON handling remains an explicit Phase 5b backlog
+item rather than a reason to reopen this completed user module. No blocking user/address defect
+found.
 
 ---
 

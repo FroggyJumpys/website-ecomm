@@ -46,8 +46,8 @@ ecomm-web/
 ## Working rules
 
 1. Work **one step at a time**, in the order of the roadmap below. Do not start the next step before the current one is reviewed.
-2. When a step is done, write a review note to `.reviews/NN-slug.md`, using `.reviews/_TEMPLATE.md`. Then **stop and wait** for the reviewer.
-3. The review note's **Status** moves through `Awaiting review` → `Changes requested` → `Approved`. Only the reviewer sets `Approved`.
+2. When a step is done, write a review note to `.reviews/NN-slug.md`, using `.reviews/_TEMPLATE.md`. Then **stop and wait** for the reviewer session.
+3. The review note's **Status** moves through `Awaiting review` → `Changes requested` → `Approved`. Only the reviewer sets `Approved` (see *Review process* below).
 4. If changes are requested, fix them and append a `Revision N` section to the **same** file. Do not create a new file.
 5. Steps that were not planned (extra work, scope changes) get their own review note with the next free number.
 6. Keep changes scoped to the current step. Mention unrelated problems in the note under *Out of scope / noticed*, and do not fix them.
@@ -56,13 +56,43 @@ ecomm-web/
 9. Reuse the template's look: primary colour `#fd3d57`, fonts Poppins and Roboto, the layouts in the `screenshots/` folder.
 10. Use English for code, comments and docs. User-facing copy and seed data are in Bahasa Indonesia (see *Product context* above).
 
+### Review process (executor / reviewer)
+
+Work happens in two separate sessions with separate context. The executor may be one model and the
+reviewer another; where possible the reviewer is a **different model family** from the executor.
+Using the same model in two fresh sessions is acceptable when no other model is available, but it is
+weaker evidence of independent review.
+
+- **Executor session.** Implements the step or the requested changes, runs the step's checks, writes
+  or updates the review note, and stops. It never sets `Approved` and never starts the next step.
+- **Reviewer session.** Starts fresh with only this file, the review note, the diff and the
+  repository. It does **not** rely on the executor's summary. It runs every command in *How to run
+  and verify* itself, checks the checklist, answers or escalates the open questions, and then sets
+  the status to `Changes requested` or `Approved` and writes the reviewer feedback in the same note.
+- **Handoff.** A reviewer prompt must be self-contained: repository path, review-note path, the
+  step's scope, and the exact commands and URLs to check. The reviewer does not change application
+  code; a required code change sends the note back to the executor as a revision.
+- **Evidence.** `Approved` requires the documented checks to have been run in the reviewer session.
+  If a check cannot be run, the note stays `Awaiting review` and the reviewer records what is
+  unverified. A written verdict is not a substitute for a run.
+- **Model identity.** Fill the note's `Reviewer` field with the reviewing session/model and mark it
+  as an AI reviewer (for example `GPT-6.1 Sol (AI reviewer)`). The `Author` field names the
+  executing model or person.
+- **Scope decisions.** Product, scope and policy questions (for example cancellation rules or data
+  retention) are escalated to the team. The reviewer verifies consistency but does not decide them
+  unilaterally.
+- **One note at a time.** Phase 5b works notes oldest first. Do not run executors or reviewers for
+  different notes in parallel when their changes could touch the same files.
+- **Secrets.** Never paste `.env` contents, credentials or tokens into a reviewer prompt or review
+  note.
+
 ### Review note naming
 
 `.reviews/NN-slug.md`: a two-digit number, then a kebab-case slug. Sub-steps use a letter (`03a-home-page.md`).
 
 ### What every review note must contain
 
-Summary, files added/changed, how to run and verify (exact commands and URLs), decisions and trade-offs, what was **not** done, open questions for the reviewer, and a reviewer feedback section. `.reviews/_TEMPLATE.md` has the structure.
+Summary, files added/changed, how to run and verify (exact commands and URLs), decisions and trade-offs, what was **not** done, open questions for the reviewer, and a reviewer feedback section. `.reviews/_TEMPLATE.md` has the structure. The template's `Reviewer` field names the reviewing session/model; an AI reviewer is marked as such (for example `GPT-6.1 Sol (AI reviewer)`).
 
 ## Roadmap
 
@@ -133,6 +163,10 @@ touch starts. Do not begin Phase 6 while a review below is still unread.
 | --- | ------------------------ | ------------------------------------------------------------------------------------------ |
 | 05b | `05b-review-backlog.md`  | Work through every open review note (00 through 05) oldest first: read it, reproduce each open question or change request, fix it, verify it, and record the outcome in this note's worklist. A review is finished only when its own *How to verify* checklist passes and its open questions are answered. Then move to the next one, and only after the last review is closed does Phase 6 start |
 
+Every entry follows the *Review process* above: an executor session prepares the fix, and a separate
+reviewer session verifies it and closes the note. The worklist records the model/session that
+executed and reviewed each note.
+
 ### Phase 6: Finishing touches
 | #  | Review file                | Goal                                                                                         |
 | -- | -------------------------- | -------------------------------------------------------------------------------------------- |
@@ -155,5 +189,5 @@ touch starts. Do not begin Phase 6 while a review below is still unread.
 - It runs from a clean checkout using only the documented commands.
 - Lint passes (`npm run lint`).
 - Tests for the step pass, where the step has tests.
-- The review note is written and its *How to verify* section was actually followed.
+- The review note is written and its *How to verify* section was actually followed; the reviewer re-runs it before approving.
 - No unexplained TODOs, `console.log`s or commented-out code left behind.

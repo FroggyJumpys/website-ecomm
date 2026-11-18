@@ -1,10 +1,10 @@
 # 03a – Home page
 
-- **Status:** Awaiting review
+- **Status:** Changes requested
 - **Phase:** 3 – Frontend pages
 - **Date:** 2026-11-12
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -113,4 +113,30 @@ Checked on this machine:
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+### Review — 2026-11-18
+
+**Verdict: Changes requested.** The required home-page sections, routes, mock/API query usage, error handling and responsive presentation are implemented, and the supplied desktop/mobile screenshots show the intended result. One documented loading-state guarantee is not met by the implementation. Only this review note was edited; no application code was changed.
+
+#### Required change
+
+1. **Make the trending skeleton occupy the same grid footprint as its loaded content.** `HomePage` requests eight trending products (`useProducts({ sort: 'rating', limit: 8 })`), but the shared local `ProductGrid` always renders exactly four `ProductCardSkeleton` items while pending. On desktop the loaded grid therefore grows from one row to two, contradicting the checked claim that “skeletons match the final grid shape so nothing jumps.” Pass the expected item count into `ProductGrid` (four for new arrivals, eight for trending), or otherwise make the pending and loaded footprints agree, and update this note's verification evidence.
+
+#### Evidence
+
+- Ran `npm run lint` successfully with no errors; the old stray screenshot-profile diagnostics described in this note are no longer present.
+- Ran `npm run build --workspace=client` successfully. Vite emitted only the known 549.45 kB chunk-size warning.
+- Ran `npm test` successfully: the client exited cleanly with no tests and all 18 current server unit-test files passed (283 tests).
+- Ran the documented development server and inspected `/` in headless Chrome at desktop and 390×844. The home route rendered the real hero, the mobile page had no horizontal overflow, and the section/navigation shell remained usable.
+- Inspected `HomePage.jsx`, `SectionHeading.jsx`, product cards/skeletons and catalogue hooks. Confirmed the hero, trust strip, category grid, new-arrival query, promo link and trending query, including the `/toko?kategori=...`, `?sort=newest` and `?sort=rating` destinations and explicit retry states.
+- Reviewed both supplied home-page captures. They show the expected Rupiah prices, discount/new badges, category links, promotional section and responsive stacking. The final trending capture contains eight cards, which also confirms the four-skeleton footprint discrepancy above.
+
+#### Open questions
+
+1. `sort=newest` is a sound new-arrival mapping and `sort=rating` is acceptable as the Phase 03 trending proxy. Preserve the existing API contract for now; a dedicated trending flag/ranking can be decided with the catalogue API rather than added as an undocumented client-only parameter.
+2. The reusable CDP capture script is acceptable as a local verification tool while excluded from lint and not treated as application source. The historical lint noise it caused has already been resolved; no further action is required in this step.
+3. The queue warning is outdated: 01b and 02 are now approved, while earlier notes with requested changes remain tracked in their own files.
+
+#### Non-blocking observations
+
+- Frontend behavioural tests and the full accessibility/screen-reader pass remain correctly deferred to steps 07 and 08.
+- The mixed photography and later removal of mocks are outside this page's review scope.

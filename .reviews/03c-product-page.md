@@ -1,10 +1,10 @@
 # 03c – Product page
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 3 – Frontend pages
 - **Date:** 2026-11-12
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -153,4 +153,33 @@ Screenshot evidence in `.reviews/assets/03c/`: `desktop-product`, `desktop-produ
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+### Review — 2026-11-18
+
+**Verdict: Approved.** The product detail scope is complete and its key interactions work. Pulling a minimal cart store forward was preferable to shipping a dead purchase control; Phase 05 has since replaced that store's in-memory implementation with the real cart API without changing the page's purpose. Only this review note was edited; no application code was changed.
+
+#### Evidence
+
+- Ran `npx eslint client/src server/src`, `npm run build --workspace=client`, and `npm test` successfully. Client has no tests; all 18 current server unit-test files passed (283 tests). The known build chunk warning is unchanged.
+- Ran `npm run dev` and exercised `/produk/sofa-ulin-l-shape` in headless Chrome against the seeded development API:
+  - The page rendered its title, three colour radios, size radio, quantity control, purchase actions and four related products.
+  - Quantity started at 1, decrement was disabled at the minimum, and an attempted value of 999 was clamped to the stock maximum of 6.
+  - ArrowRight moved the native colour selection from “Abu hangat” to “Cokelat tua.”
+  - Adding the selected variant displayed the status confirmation and changed the cart label to one item; adding it again produced two items rather than a separate visible line/count reset.
+  - ArrowRight selected the specifications tab and displayed real material/dimension data; End and Home selected the last and first tabs respectively.
+  - “Perbesar” opened the labelled lightbox and Escape dismissed it. Initial-focus/focus-restoration code was also inspected.
+  - `/produk/tidak-ada` rendered the specific product-not-found heading.
+  - At 390×844, the product page had no horizontal overflow.
+- Inspected the product loading/error/not-found branches, gallery and optional thumbnails, purchase state reset, stock/sold-out handling, tabs keyboard implementation, related-product filtering and supplied desktop/mobile screenshots.
+
+#### Open questions
+
+1. Keep the cart provider pulled forward. It gives the required purchase controls real behaviour and is a reasonable shared foundation for 03g.
+2. WhatsApp consultation is acceptable as an additional secondary action; it need not be removed when the wishlist control arrives.
+3. The three current tabs cover this roadmap. Do not add an “Ulasan” tab without actual review content and a separately agreed scope.
+4. The category → brand → best-rated fallback is reasonable for related products and keeps the rail useful. The API should preserve a deterministic ordering and exclude the current/hidden products.
+5. The name/photo mismatch requires a team content decision in 04a; the reviewer will not unilaterally choose between remapping photography and renaming products. It is documented and does not block this page's mechanics.
+
+#### Non-blocking observations
+
+- Focus trapping, reduced motion and the broader accessibility audit remain deferred to step 08.
+- Current add-to-cart behaviour is asynchronously server-backed and can surface stock/API errors, which is the intended Phase 05 evolution of the original inline mock confirmation.

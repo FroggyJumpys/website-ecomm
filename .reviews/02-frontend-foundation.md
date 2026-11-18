@@ -1,10 +1,10 @@
 # 02 – Frontend foundation
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 2 – Frontend foundation
 - **Date:** 2026-11-16
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -107,4 +107,29 @@ Screenshot evidence in `.reviews/assets/02/`: `desktop-home`, `mobile-home`,
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+### Review — 2026-11-18
+
+**Verdict: Approved.** The step-02 foundation is present and coherent: CSS-first Tailwind tokens, shared typography/focus/base styles, route constants and route table, storefront layout, reusable controls, formatting helpers, and service/hook separation. The original mock-backed implementation is also recoverable in the frontend snapshot (`2ba47bc`) and its supplied screenshots. Later Phase 05 integration deliberately removed `client/src/mocks/` and `VITE_USE_MOCKS`; that planned supersession is not a defect in this historical step. Only this review note was edited; no application code was changed.
+
+#### Evidence
+
+- Ran `npm run lint` successfully with no errors.
+- Ran `npm run build --workspace=client` successfully with Vite 8.3.8. The existing 549.45 kB chunk warning remains deferred to the performance/code-splitting step.
+- Ran `npm run dev` in a bounded reviewer harness and stopped the process tree afterward. API health and database health returned 200; `/`, `/toko`, `/produk/sofa-ulin-l-shape`, `/masuk`, `/daftar`, `/keranjang`, `/akun`, `/favorit`, `/pembayaran`, and an unknown URL all returned the client successfully on port 5173.
+- Independently exercised the client in headless Chrome:
+  - At 390×844, the home page had no horizontal overflow (`scrollWidth === 390`), the mobile menu opened as a labelled dialog, and Escape closed it.
+  - Computed body and heading fonts were Roboto and Poppins respectively.
+  - First Tab exposed the skip link with the accent-coloured focus outline; activating it set `#konten`.
+  - The unknown route rendered the shared “Alamat ini tidak ada di katalog kami” page with working navigation destinations.
+- Inspected the token/base CSS, route table, main layout/header, shared UI implementations, product card and skeleton, price/format helpers, HTTP/catalogue services, and query hooks. `formatIDR` uses `id-ID`/IDR with zero fraction digits and the price components use tabular numerals. The historical mock implementation applies latency and returns the documented API envelopes.
+- Reviewed the supplied desktop/mobile foundation and 404 screenshots, plus the completed home-page capture, for the single-accent visual direction, type hierarchy, price formatting and responsive shell.
+
+#### Open questions
+
+1. Keep the single accent. Existing semantic success/warning/danger tokens already cover state communication; a second decorative accent is unnecessary.
+2. The flat `components/ui/` folder is acceptable at its current size. Split it by responsibility only when navigation or ownership becomes unclear; no restructuring is required for this approval.
+
+#### Non-blocking observations
+
+- The mock-offline checklist item describes the Phase 02–03 architecture and is superseded by the approved roadmap's Phase 05 integration. Current storefront data checks therefore require the API/database rather than the removed mock flag.
+- Dialog focus trapping and broader accessibility polish remain explicitly assigned to step 08; Escape, initial focus and focus restoration are already implemented.

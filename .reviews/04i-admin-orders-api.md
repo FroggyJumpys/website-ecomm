@@ -1,10 +1,10 @@
 # 04i – Admin orders API
 
-- **Status:** Awaiting review <!-- Awaiting review | Changes requested | Approved -->
+- **Status:** Approved
 - **Phase:** 4b – Admin API
 - **Date:** 2026-11-18
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -238,4 +238,24 @@ seeded or changed by it.
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved on 2026-11-18.** Independently ran the documented lint, unit and integration commands;
+the current results are 18 unit files / 283 tests and 30 integration files / 518 tests, all passing.
+The admin-order policy and 20 HTTP tests cover literal search, paging/counts, the full transition
+matrix, concurrent cancellation, deleted-product restock skipping and refusal side effects.
+
+A disposable live order (`BD-2026-1068`) confirmed the same contract without changing seeded orders.
+Admin search returned exactly that order with customer, items, timeline and status counts; detail
+matched. Guest/customer access returned 401/403 and a cross-site status write returned 403.
+Processing to shipped appended one event and set tracking; a same-status retry and tracking-only
+clear appended none; the customer saw the refreshed status. Shipped back to processing returned 409
+with `from`, `to` and both allowed targets. Cancellation set the default reason and a third event,
+restored stock from 5 to 6, and a repeated cancellation added no event and did not restock again.
+Unknown/malformed order numbers returned 404/422. The order and disposable account were deleted,
+stock remained 6, and the review server stopped.
+
+The transition/table and list-shape choices are internally consistent. Product-policy questions
+about cancelling shipped orders, requiring tracking, custom cancellation reasons and correcting
+operator mistakes should be confirmed by the product owner before changing the API; they are not
+silently decided by this review. The seeded-order restock caveat is a known demo-data issue and must
+not be applied to real checkout-created orders. A lean list representation can be considered in the
+performance step. No blocking admin-order defect found.

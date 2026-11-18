@@ -1,6 +1,7 @@
 # 04e — Wishlist API
 
-**Status:** Awaiting review
+**Status:** Approved
+**Reviewer:** Kimi (Moonshot AI, AI reviewer)
 **Depends on:** 04d (User API), 04c (Catalog API), 04a (`tbl_favorit` schema)
 **Approved plan:** GET/POST `/users/me/wishlist`, DELETE `/users/me/wishlist/:productId`, no new
 migration.
@@ -171,4 +172,19 @@ counts confirmed unchanged at 2 users / 3 addresses / 6 categories / 4 brands / 
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved on 2026-11-18.** Independently exercised the three live endpoints with two disposable
+customers. Both began with empty, isolated wishlists. Saving returned the catalogue item with
+colours and sizes; saving the same product twice did not duplicate or reorder it; adding another
+product produced newest-first `[3,1]`. Unknown products returned 404 `PRODUCT_NOT_FOUND`; missing,
+string and malformed route ids returned 422. A second customer's DELETE returned 200 without
+removing the owner's row. The owner's delete returned `{ data: null }`, and re-saving moved the
+product back to the top. GET, POST and DELETE each returned 401 without a session.
+
+The current complete unit and integration suites passed during this review sequence, including the
+59 wishlist validator/query/API tests, and lint passed. Both disposable accounts and their wishlist
+rows were deleted and the review server stopped.
+
+The design questions retain the documented behavior: repeat saves are idempotent and keep position;
+hidden products retain customer intent and reappear on reactivation; 200 is appropriate for this
+idempotent save contract; out-of-stock products remain saveable for restocking; no arbitrary size
+cap is needed for this roadmap. No blocking wishlist defect found.

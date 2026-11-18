@@ -1,10 +1,10 @@
 # 04h – Admin catalog API
 
-- **Status:** Awaiting review <!-- Awaiting review | Changes requested | Approved -->
+- **Status:** Approved
 - **Phase:** 4 – Backend API
 - **Date:** 2026-11-17
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -145,17 +145,17 @@ npm audit --workspace server                       # found 0 vulnerabilities
 
 Checklist for the reviewer:
 
-- [ ] The auth matrix covers every route, including upload, and asserts no writes on refusal.
-- [ ] `expectedVersion` is required on PATCH and DELETE; a stale value is `409 PRODUCT_CONFLICT`.
-- [ ] The version trigger fires on **every** product update, including checkout's stock decrement.
-- [ ] Hiding via `PATCH { isActive: false }` keeps cart lines, wishlist rows and public 404.
-- [ ] Product delete refuses while a cart holds the product; historical order items survive with `product_id` null.
-- [ ] Category and brand delete refuse while **any** product, hidden included, references them.
-- [ ] A derived slug is suffixed and the response carries the final value; an explicit duplicate slug is `422`.
-- [ ] Image paths are allowlisted, existence-checked for `/images/...`, and served only as `image/webp` under generated UUID names.
-- [ ] Upload limits (5 MiB, 8192 px, 16 M pixels, per-admin rate) and refusals behave as documented.
-- [ ] `server/uploads/` is git-ignored and `UPLOAD_DIR`/`PUBLIC_IMAGE_DIR` are documented in `.env.example`.
-- [ ] README documents the step-05 compatibility changes.
+- [x] The auth matrix covers every route, including upload, and asserts no writes on refusal.
+- [x] `expectedVersion` is required on PATCH and DELETE; a stale value is `409 PRODUCT_CONFLICT`.
+- [x] The version trigger fires on **every** product update, including checkout's stock decrement.
+- [x] Hiding via `PATCH { isActive: false }` keeps cart lines, wishlist rows and public 404.
+- [x] Product delete refuses while a cart holds the product; historical order items survive with `product_id` null.
+- [x] Category and brand delete refuse while **any** product, hidden included, references them.
+- [x] A derived slug is suffixed and the response carries the final value; an explicit duplicate slug is `422`.
+- [x] Image paths are allowlisted, existence-checked for `/images/...`, and served only as `image/webp` under generated UUID names.
+- [x] Upload limits (5 MiB, 8192 px, 16 M pixels, per-admin rate) and refusals behave as documented.
+- [x] `server/uploads/` is git-ignored and `UPLOAD_DIR`/`PUBLIC_IMAGE_DIR` are documented in `.env.example`.
+- [x] README documents the step-05 compatibility changes.
 
 ## Live verification
 
@@ -272,4 +272,23 @@ watched the upload directory and restarted the server mid-request. `server/nodem
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved on 2026-11-18.** Reviewed the route gates, validators, version trigger, storage policy
+and the auth/concurrency test coverage. The complete current suites passed (283 unit and 518
+integration tests), including every targeted admin suite listed above. `npm run lint` and
+`npm run build` passed (the known 549.45 kB chunk warning remains); `npm audit --workspace server`
+reported zero vulnerabilities and `git diff --check` reported no whitespace errors.
+
+A live admin lifecycle also passed: guest/customer calls returned 401/403 and a cross-site write
+returned 403 without creating a row. A generated PNG uploaded successfully, was re-encoded and
+served publicly as WebP with its generated UUID path. Category, brand and product creation worked;
+hiding advanced the product version and removed public detail; reusing the previous positive version
+returned 409 `PRODUCT_CONFLICT`; in-use category and brand deletes returned 409. A customer cart
+line blocked product deletion with `PRODUCT_IN_USE`; clearing it allowed product and taxonomy
+deletion. Slug allocation, historical snapshots, checkout-driven version changes, upload limits and
+refusal cleanup are pinned by the passing integration tests.
+
+The temporary product, category, brand, customer cart line and uploaded file were removed, and the
+review server stopped. Product-only optimistic locking is sufficient for this scope; current upload
+budgets are reasonable; deleting products while preserving snapshot history is intentional; admin
+lists should continue to default to all visibilities; local-disk storage remains appropriate for the
+stated deployment. No blocking admin-catalogue defect found.

@@ -1,10 +1,10 @@
 # 01a – Dependency audit and version decisions
 
-- **Status:** Awaiting review
+- **Status:** Changes requested
 - **Phase:** 1 – Codebase setup
 - **Date:** 2026-11-12
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -101,4 +101,30 @@ Latest stable at the time of the audit. These are the versions step 01b writes i
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+### Review — 2026-11-18
+
+**Verdict: Changes requested.** This review covers the dependency audit and version decisions in step 01a only. Only this review note was edited; no application code or manifests were changed.
+
+#### Findings
+
+1. **P1 — The selected `@eslint/js` version is incompatible with the selected ESLint version.** The table chooses `@eslint/js` 10.0.1 alongside ESLint 9.39.5 and describes it as compatible. Registry metadata for `@eslint/js@10.0.1` declares `peerDependencies.eslint: ^10.0.0`, so that combination would produce the peer conflict that the ESLint 9 decision is intended to avoid. Its Node engine range (`^20.19.0 || ^22.13.0 || >=24`) also excludes Node 22.12.x even though the proposed floor is `>=22.12`. The current root manifest already uses `@eslint/js` `^9.39.5`, which also disagrees with the audit table. **Requested correction:** record `@eslint/js` 9.39.5 with ESLint 9.39.5 (and explain that both stay on major 9), or provide a different internally consistent, peer-compatible decision. Keep the audit and the versions actually scaffolded in 01b aligned.
+
+2. **P2 — The note lacks the required verification handoff.** There is no `Files added / changed` section and no `How to run and verify` section, although both are mandatory under `AGENTS.md` and `.reviews/_TEMPLATE.md`. Consequently there are no documented commands or checklist for a reviewer to reproduce, and the registry claims cannot be approved using the required review process. **Requested correction:** add the file table and exact read-only commands for checking Node/npm, package versions, relevant peer dependencies and engines, and consistency with `AGENTS.md`. Include a checklist and state explicitly that no application URL, install, build, lint or test run applies to this planning-only step.
+
+#### Evidence and coverage
+
+- Read `AGENTS.md`, this note, `.reviews/_TEMPLATE.md`, the current root/client/server manifests, and the available diff.
+- Ran `node --version` and `npm --version`; confirmed `v22.14.0` and `11.17.0`.
+- Ran `npm view <package> version` for every package listed in the audit. The recorded versions were confirmed as published versions. Newer current releases observed for a few packages (for example TanStack Query 5.108.0 and Vitest 5.1.1) do not by themselves invalidate a historical point-in-time audit.
+- Ran targeted `npm view` checks for the declared peer dependencies and engines. Confirmed `eslint-plugin-react@7.37.5` stops at ESLint `^9.7`, Vite 8.3.8 supports Node `>=22.12.0`, `@vitejs/plugin-react@6.3.0` peers on Vite `^8.0.0`, and Vitest 5.1.0 peers on Vite `^6.4.0 || ^7.0.0 || ^8.0.0`.
+- No dependency installation, application URL, build, lint or test execution was required or performed for this audit-only step. The missing documented verification procedure remains unverified until supplied and rerun.
+
+#### Disposition of open questions
+
+- ESLint 9.39.5 is acceptable because of the confirmed plugin peer range; use the matching `@eslint/js` 9.x rather than accepting a peer warning.
+- React 19 and TanStack Query are consistent with the current stack and frontend architecture. Any course-specific React constraint remains a team question, but none is documented here.
+- Node `>=22.12` is an acceptable floor for the selected Vite 8 toolchain, provided all other selected packages support it; the incompatible `@eslint/js` 10 selection must be corrected as above.
+
+#### Next action
+
+Append `Revision 1` to this same file addressing both findings. Leave the status `Changes requested` until re-review; only the reviewer may set `Approved`.

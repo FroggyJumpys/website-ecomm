@@ -1,10 +1,10 @@
 # 03j – Admin orders
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 3b – Admin frontend
 - **Date:** 2026-11-16
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -105,4 +105,17 @@ Screenshot evidence in `.reviews/assets/03j/`: `desktop-admin-orders`,
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Verdict: Approved.** No blocking issue was found in the original Phase 03j admin-order scope.
+
+Independent verification performed with `npm run dev` and Chrome:
+
+- The current integrated list showed five orders (the original mock had four), including `BD-2026-1066` created during the 03g review. Desktop customer columns, dates, statuses and totals rendered.
+- `Dikirim` filtered to the one originally shipped order. Searches by Sari's name and email each returned the matching row; result counts were present.
+- Order detail showed customer, address, both purchased variants, payment summary, timeline and an initially disabled save button.
+- Changed `BD-2026-1066` from processing to shipped with tracking `REVIEW-03J`; success feedback and tracking appeared. After switching to Sari, the customer order detail showed the same tracking/update.
+- The cancelled order hid its timeline, the missing-order route showed its recovery link, and 390 px list/detail views had no page overflow. The list's customer column was hidden only at mobile width.
+- Reviewed the supplied original screenshots for the four-order fixture, count text, cancellation reason, reopening behaviour and status/timeline update. The original client-side implementation keeps the unfiltered list separately, so its no-result reset remains available.
+
+**Later integration observation (not a 03j blocker):** in the current Phase 05 server-filtered list, a search with zero matches produced the generic `Belum ada pesanan` state rather than the original no-result/reset state. This belongs to the integration review/backlog; it is not a defect in the historical mock implementation being approved here.
+
+Open questions: transition rules, cancellation reasons and tracking requirements are policy decisions. The later API has already constrained transitions and made terminal states explicit; any further rule change should be decided by the product team rather than this reviewer.

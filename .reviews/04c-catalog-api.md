@@ -1,10 +1,10 @@
 # 04c – Catalog API
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 4 – Backend
 - **Date:** 2026-05-20
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -50,22 +50,22 @@ npm run lint
 
 Checklist the reviewer can tick:
 
-- [ ] `GET /api/v1/products` returns 12 products with `meta: { page: 1, limit: 9, total: 12, totalPages: 4 }`
-- [ ] `GET /api/v1/products?limit=3&page=2` returns the next three, same `total`
-- [ ] `GET /api/v1/products?search=rotan` returns 5 products; searching `%` matches only names containing a literal `%`
-- [ ] `GET /api/v1/products?category=sofa&brand=badekor-workshop&sort=price-asc` narrows and orders correctly
-- [ ] `GET /api/v1/products?minPrice=1250000&maxPrice=3900000` treats both bounds as inclusive
-- [ ] `GET /api/v1/products?category=tidak-ada` returns `200` with `{ data: [], meta.total: 0 }`
-- [ ] `GET /api/v1/products?page=0` returns `422` with `details.field = "page"`
-- [ ] `GET /api/v1/products?minPrice=9000000&maxPrice=1000000` returns `422` on `minPrice`
-- [ ] `GET /api/v1/products?category=sofa&category=kursi` returns `422` (repeated parameter)
-- [ ] `GET /api/v1/products/sofa-ulin-l-shape` returns colours, sizes, images, description, category and brand
-- [ ] `GET /api/v1/products/tidak-ada` returns `404 PRODUCT_NOT_FOUND`
-- [ ] `GET /api/v1/products/sofa-ulin-l-shape/related?limit=3` never includes the product itself
-- [ ] `GET /api/v1/products/filters` is not swallowed by `/:slug` and returns a price range plus colour/size facets
-- [ ] `GET /api/v1/categories` shows real active-product counts (sofa 2, kursi 3, …), not the mock's placeholders
-- [ ] None of the catalogue routes need a session cookie
-- [ ] `npm run db:seed` still reports 2 users / 3 addresses / 6 categories / 4 brands / 12 products / 4 orders
+- [x] `GET /api/v1/products` returns 12 products with `meta: { page: 1, limit: 9, total: 12, totalPages: 2 }`
+- [x] `GET /api/v1/products?limit=3&page=2` returns the next three, same `total`
+- [x] `GET /api/v1/products?search=rotan` returns 5 products; searching `%` matches only names containing a literal `%`
+- [x] `GET /api/v1/products?category=sofa&brand=badekor-workshop&sort=price-asc` narrows and orders correctly
+- [x] `GET /api/v1/products?minPrice=1250000&maxPrice=3900000` treats both bounds as inclusive
+- [x] `GET /api/v1/products?category=tidak-ada` returns `200` with `{ data: [], meta.total: 0 }`
+- [x] `GET /api/v1/products?page=0` returns `422` with `details.field = "page"`
+- [x] `GET /api/v1/products?minPrice=9000000&maxPrice=1000000` returns `422` on `minPrice`
+- [x] `GET /api/v1/products?category=sofa&category=kursi` returns `422` (repeated parameter)
+- [x] `GET /api/v1/products/sofa-ulin-l-shape` returns colours, sizes, images, description, category and brand
+- [x] `GET /api/v1/products/tidak-ada` returns `404 PRODUCT_NOT_FOUND`
+- [x] `GET /api/v1/products/sofa-ulin-l-shape/related?limit=3` never includes the product itself
+- [x] `GET /api/v1/products/filters` is not swallowed by `/:slug` and returns a price range plus colour/size facets
+- [x] `GET /api/v1/categories` shows real active-product counts (sofa 2, kursi 3, …), not the mock's placeholders
+- [x] None of the catalogue routes need a session cookie
+- [x] `npm run db:seed` still reports 2 users / 3 addresses / 6 categories / 4 brands / 12 products / 4 orders
 
 ## Decisions and trade-offs
 
@@ -144,4 +144,25 @@ Checklist the reviewer can tick:
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved on 2026-11-18.** Reviewed the catalogue route order, validators and parameterised SQL,
+then exercised every public route without a session cookie against the live API. Pagination returned
+nine items by default and three on `page=2&limit=3`; `rotan` returned five original fixtures and a
+literal `%` search returned none. Combined category/brand filtering and ascending price sorting were
+correct, both price bounds were inclusive, and an unknown category produced an empty 200 response.
+Invalid page, reversed price bounds and repeated category parameters returned 422 on the expected
+fields. Detail included all variant/gallery/specification fields and taxonomy; a missing detail
+returned 404. Related returned three other products, filters exposed the price/colour/size facets,
+and category counts reflected active rows.
+
+The current development database includes the later active `testing` product, so live totals are now
+13, sofa's count is 3 and its price range starts at 1,000,000; the original 12-fixture behaviour is
+otherwise unchanged. Corrected the checklist's original `totalPages: 4` typo: 12 items at nine per
+page is two pages, which is what the API computes. This was a review-note error, not an API defect.
+
+The complete current unit and integration suites and `npm run lint` were run during this review
+sequence and passed (283 unit tests, 518 integration tests per run). Open questions are resolved by
+preserving the established UI semantics: keep new-tag-first ordering, reject repeated parameters
+until multi-select is designed, retain the related fallback and all-active-product facets, and keep
+the graceful empty related response. Dedicated new/trending filters may be added when the integration
+requires them; they are not a blocker for this read-only catalogue contract. No blocking catalogue
+defect found.

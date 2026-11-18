@@ -1,10 +1,10 @@
 # 04a – Database schema
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 4 – Backend
 - **Date:** 2026-11-13
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -102,17 +102,17 @@ npm run db:migrate
 npm run db:seed
 ```
 
-- [ ] `npm run db:migrate` applies four migrations on an empty volume; a second run reports
+- [x] `npm run db:migrate` applies four migrations on an empty volume; a second run reports
       `0 migration(s) applied`
-- [ ] `npm run db:seed` reports 2 users, 3 addresses, 6 categories, 4 brands, 12 products, 4 orders
-- [ ] Running `db:seed` twice leaves those counts unchanged
-- [ ] `\dt` lists twelve tables, all prefixed `tbl_`, plus `tbl_skema_migrasi`
-- [ ] `\d tbl_pesanan` shows `tbl_pesanan_total_matches` and the `tbl_pesanan_status_valid` check
-- [ ] `tbl_pesanan.total = subtotal + shipping_cost - discount` on all four seeded orders
-- [ ] Every seeded order's `subtotal` equals the sum of its `tbl_item_pesanan.line_total`
-- [ ] Two demo logins exist: `sari@badekor.id` (customer) and `admin@badekor.id` (admin),
+- [x] `npm run db:seed` reports 2 users, 3 addresses, 6 categories, 4 brands, 12 products, 4 orders
+- [x] Running `db:seed` twice leaves those counts unchanged
+- [x] `\dt` lists twelve tables, all prefixed `tbl_`, plus `tbl_skema_migrasi`
+- [x] `\d tbl_pesanan` shows `tbl_pesanan_total_matches` and the `tbl_pesanan_status_valid` check
+- [x] `tbl_pesanan.total = subtotal + shipping_cost - discount` on all four seeded orders
+- [x] Every seeded order's `subtotal` equals the sum of its `tbl_item_pesanan.line_total`
+- [x] Two demo logins exist: `sari@badekor.id` (customer) and `admin@badekor.id` (admin),
       password `rahasia123`, stored as bcrypt hashes
-- [ ] The constraint checks below all raise an error instead of writing
+- [x] The constraint checks below all raise an error instead of writing
 
 Verified locally on PostgreSQL 17 (Docker). Constraint behaviour was tested by hand and each was
 rejected: `tbl_pesanan_total_matches`, `tbl_produk_compare_at_price_above_price`,
@@ -214,4 +214,28 @@ sequential scan either way).
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+**Approved on 2026-11-18.** Independently ran `npm run db:migrate` twice and `npm run db:seed`
+twice against PostgreSQL 17. The migration ledger reported zero new migrations on both runs; both
+seed runs completed with unchanged counts. The development database contains one user, product and
+order added by later review work, so the global seed summary is now 3 users / 13 products / 5 orders;
+queries scoped to the original fixtures confirmed the documented 2 users, 3 addresses, 4 orders,
+6 categories and 4 brands. The product list contains the original 12 slugs plus the later `testing`
+product. This is accumulated test data, not seed duplication.
+
+Verified all 12 `tbl_` tables, both order checks, bcrypt hashes and demo roles. All four seeded
+orders satisfy the total check and their subtotals equal their line totals. Manually exercised
+`tbl_pesanan_total_matches`, `tbl_produk_compare_at_price_above_price`,
+`tbl_keranjang_single_owner`, `tbl_alamat_one_default_per_user` and
+`tbl_favorit_user_product_key`; every invalid write raised the expected error. The wishlist probe
+was rolled back and follow-up queries confirmed no constraint-test artifacts remained.
+
+`npm run lint` passed. The later database-backed integration suite also passed (30 files, 518
+tests), including repeated migration checks; this supplies additional confidence in the migrated
+schema without changing this step's original manual verification scope. The destructive fresh-volume
+commands were not rerun against the shared development volume.
+
+Open questions resolved: English snake_case columns are intentional under the current convention;
+one stock value per product is sufficient for this roadmap; persistent guest carts are required for
+the login merge; `BD-<year>-<sequence>` is retained with authorization protecting order details;
+payment statuses remain deferred until real payments exist; PostgreSQL 15+ remains the documented
+target while 17 is the verified Docker version. No blocking schema or seed defect found.

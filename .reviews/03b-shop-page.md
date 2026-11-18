@@ -1,10 +1,10 @@
 # 03b – Shop page
 
-- **Status:** Awaiting review
+- **Status:** Approved
 - **Phase:** 3 – Frontend pages
 - **Date:** 2026-11-12
 - **Author:** agent
-- **Reviewer:** _unassigned_
+- **Reviewer:** Kimi (Moonshot AI, AI reviewer)
 
 ## Summary
 
@@ -138,4 +138,31 @@ Screenshot evidence in `.reviews/assets/03b/`: `desktop-shop`, `desktop-shop-fil
 
 ## Reviewer feedback
 
-_To be filled in by the reviewer._
+### Review — 2026-11-18
+
+**Verdict: Approved.** The shop page implements the required filter/sort/view/pagination behaviour with shareable URL state, distinct desktop and mobile controls, and usable loading/error/empty states. The current integrated API returns a later-stage catalogue of 13 products rather than the original 12; the original 12-product, 9-plus-3 split is confirmed by the supplied historical screenshots and mock implementation. Only this review note was edited; no application code was changed. The existing development database was seeded with the repository's documented idempotent seed to exercise the current integrated UI.
+
+#### Evidence
+
+- Ran `npm run lint`, `npm run build --workspace=client`, and `npm test` successfully. Client has no tests; all 18 current server unit-test files passed (283 tests). The build retains only the known chunk-size warning.
+- Ran `npm run dev` and independently exercised `/toko` in headless Chrome:
+  - The base page showed nine cards, a result summary, two-page navigation and unique element IDs.
+  - `?kategori=kursi&warna=Rotan%20natural` retitled the page “Kursi” and returned two cards.
+  - `?sort=price-asc` selected `price-asc` and rendered products in ascending current-price order; struck-through compare prices do not affect that ordering.
+  - `?tampilan=daftar` retained the view parameter and rendered nine row layouts instead of the grid.
+  - `?q=zzz` rendered “Tidak ada produk yang cocok.”
+  - Entering a minimum above the maximum displayed the inline `role="alert"` and disabled “Terapkan harga.”
+  - At 390×844, the filter drawer opened with a result-count close action and no horizontal overflow.
+- Inspected URL parsing/serialisation and English API mapping, facet reset behaviour, desktop/mobile input namespacing, active-filter handling, grid/list rendering, pagination windowing and the responsive/sticky layouts. Reviewed the desktop, filtered, list, empty, page-two, scrolled and mobile evidence referenced by the note.
+
+#### Open questions
+
+1. Single-select facets are approved because they match the actual API contract. Multi-select should be a deliberate API/UI scope change, not simulated in the client.
+2. Nine products per page is appropriate for the three-column grid and demonstrates pagination with the mock dataset.
+3. Keep the explicit price submit. It allows the pair to be validated and applied atomically; instant facet changes do not make debounced numeric entry necessary.
+4. The review-queue warning is historical and requires no action in this note.
+
+#### Non-blocking observations
+
+- Full accessibility, SEO and image-performance work remain assigned to their later roadmap steps.
+- Filter-option query failures currently leave the rail in its loading skeleton rather than exposing a separate retry, while product failures do have a real retry. This is worth considering in the integration/UX hardening pass, but it does not invalidate the required shop interactions verified here.
