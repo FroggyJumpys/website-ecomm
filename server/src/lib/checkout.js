@@ -27,6 +27,9 @@ export const SHIPPING_METHODS = Object.freeze([
 export const PAYMENT_METHODS = Object.freeze([
   { id: 'bca', label: 'Transfer bank BCA' },
   { id: 'bni-va', label: 'Virtual account BNI' },
+  // The label is what the order stores and the customer reads; QRIS is a brand
+  // name, so it is not translated.
+  { id: 'qris', label: 'QRIS' },
   { id: 'kartu', label: 'Kartu kredit' },
 ]);
 

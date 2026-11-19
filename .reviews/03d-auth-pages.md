@@ -130,9 +130,11 @@ Screenshot evidence in `.reviews/assets/03d/`: `desktop-login`, `desktop-login-v
 - **Header menu is a disclosure, not `role="menu"`.** A real menu role owes arrow-key handling; a
   button with `aria-expanded` plus normal links keeps the tab order intact with far less code.
   Escape and outside-click both close it and Escape returns focus to the trigger.
-- **Sign-out navigates home before the session drops.** The first implementation awaited `logout()`
-  first, and `RequireAuth` won the race, sending a signing-out customer to `/masuk?redirect=%2Fakun`
-  — which reads as "access denied" rather than "signed out". The harness's final-path log caught it.
+- **Sign-out is a two-step transition, not a navigation race.** `status` becomes `signing-out`, the provider sends
+  the visitor home, and the session is only dropped once the *committed* location is `/` — at that point no guard
+  is mounted, so nothing can turn "signed out" into "access denied". Two earlier attempts (await-then-navigate,
+  then navigate-then-await) both left the outcome to a race against the router's deferred location update; see
+  *Revision 1*.
 - **`headerIconButton` extracted.** The header had four icon buttons using an inline string; a new
   control (the account trigger) would have been the fourth copy.
 - **Removed the template's social buttons and "forgot password".** Dead controls contradict the
@@ -227,3 +229,169 @@ Screenshot evidence in `.reviews/assets/03d/`: `desktop-login`, `desktop-login-v
 
 - Password reset, OAuth and legal-document pages require separate product scope; omitting dead controls is correct.
 - Frontend tests and the full accessibility pass remain deferred to steps 07 and 08.
+
+## Revision 1 — 2026-11-19
+
+Response to the review of 2026-11-18. The single required change is fixed. It was reproduced against the seeded
+API *before* the fix and verified *after* it, along with the two other sign-out entry points the review named and
+the guest path that must keep its `?redirect=` behaviour. Status stays `Changes requested`; only the reviewer sets
+`Approved`.
+
+### The reviewer was right, and the previous fix was not sufficient
+
+The old code did `navigate(routes.home); await logout();` in all four places. That only shifted the odds: the
+outcome depended on whether the router had committed `/` before the logout response arrived.
+
+Reproduced in headless Chrome against the seeded API, before any code change (3 runs, header disclosure on
+`/akun`, customer account):
+
+```
+run 1  after: /masuk?redirect=%2Fakun  ← the reported failure
+run 2  after: /
+run 3  after: /
+```
+
+Root cause, read from the installed package rather than guessed: React Router 7's `<BrowserRouter>` wraps every
+location update in `React.startTransition` (`node_modules/react-router/dist/development/chunk-6KYCQHYJ.mjs`,
+`BrowserRouter` → `setState` → `React10.startTransition(() => setStateImpl(newState))`). So `navigate('/')` is a
+*deferred* update, while `logout()`'s `setSession({ status: 'guest' })` is an *urgent* one. When the logout
+request resolved before React processed the transition, React re-rendered the still-mounted `/akun` tree with
+the guest status, `RequireAuth` rendered `<Navigate to="/masuk?redirect=%2Fakun" replace />`, and that history
+entry then beat the pending `/` transition. No ordering of `await navigate`/`await logout` fixes that on its own,
+because the two updates have different priorities.
+
+### The fix: sign-out is a two-step state transition
+
+`status` gained a fourth value, `signing-out`, and the session is dropped in two steps instead of racing:
+
+1. **"Keluar" sets `status: 'signing-out'`** (`AuthProvider.signOut()`). The guards treat that status exactly
+   like `restoring`: they render the waiting skeleton and do **not** redirect. `lib/signOut.js` holds the
+   decision table (`idle` / `leave` / `finish`) so it can be unit-tested without a browser.
+2. **The provider sends the visitor home** while still `signing-out`.
+3. **The session is dropped only once the committed location is `/`**, i.e. when `useLocation()` reports the home
+   page. At that point no guard is mounted, so there is nothing left to redirect and the outcome no longer
+   depends on update priorities.
+
+The `/auth/logout` request is fired but not awaited for the status change: the visitor is signed out locally
+either way, and a slow or failed logout call must not keep the header signed in.
+
+Supporting changes:
+
+- `AuthProvider` now sits **inside** `BrowserRouter` in `main.jsx` so it can observe the committed location.
+  Nothing above the router used the session context.
+- Every "Keluar" control (header disclosure, account rail, mobile drawer, panel rail) now calls `signOut()` and
+  no longer navigates itself. The destination has one owner, so the three entry points cannot drift apart —
+  which is exactly what the review asked for.
+- `logout()` is kept as the primitive that ends the session *in place*. The panel's forbidden screen
+  ("Masuk sebagai admin") uses it deliberately: dropping the customer session there should let `RequireAdmin`
+  send the guest to `/masuk?redirect=%2Fadmin`, not to the home page.
+
+### Files added / changed (this revision)
+
+| File | Change |
+| ---- | ------ |
+| `client/src/lib/signOut.js` | New. `signOutStep(status, pathname)` → `idle` / `leave` / `finish`, with the reasoning in the file header |
+| `client/src/lib/__tests__/sign-out.test.js` | New. Unit tests for that decision table (3 tests) |
+| `client/src/context/AuthProvider.jsx` | `signing-out` status, `signOut()`, and the effect that navigates home and only then drops the session; `logout()` kept as the in-place primitive |
+| `client/src/context/authContext.js` | Documents the fourth status and the two actions |
+| `client/src/main.jsx` | `AuthProvider` moved inside `BrowserRouter` |
+| `client/src/components/auth/RequireAuth.jsx` | `signing-out` renders the skeleton instead of the `/masuk?redirect=…` redirect |
+| `client/src/components/auth/RequireAdmin.jsx` | Same for the panel guard |
+| `client/src/components/layout/AccountMenu.jsx` | "Keluar" → `signOut()`; dropped its own `navigate` |
+| `client/src/components/layout/SiteHeader.jsx` | Mobile drawer "Keluar" → `signOut()` |
+| `client/src/components/account/AccountLayout.jsx` | Account rail "Keluar" → `signOut()` |
+| `client/src/layouts/AdminLayout.jsx` | Panel rail "Keluar" → `signOut()` |
+| `.reviews/assets/03d/*-logout-verified.png` | New evidence: home page with the signed-out header after each entry point |
+
+No other file was touched: the auth pages, services and validators are unchanged.
+
+### How to run and verify (this revision)
+
+```sh
+npm run dev            # API on :4000, client on :5173 (needs the docker database)
+# http://localhost:5173/masuk  -> sign in as sari@badekor.id / rahasia123
+```
+
+1. Open `http://localhost:5173/akun`, click the account disclosure in the header, choose **Keluar**.
+   Expected: you land on `http://localhost:5173/` with the home page and a **signed-out** header (person icon,
+   not your initials), and **never** on `/masuk?redirect=%2Fakun`. Repeat it a few times — the old code failed
+   only on some runs, so a single pass proves little.
+2. Repeat from the account rail's **Keluar** at the bottom of the `/akun` sidebar.
+3. At 390 px width, open the menu drawer (`Buka menu`) and choose **Keluar** — same expected result.
+4. Sign in as `admin@badekor.id` / `rahasia123`, open `/admin`, use the rail's sign-out icon ("Keluar dari panel
+   toko") — expected: home page, signed out.
+5. **Unchanged behaviour that must still hold:** signed out, open `/akun` → `/masuk?redirect=%2Fakun` with the
+   guard explanation; as a customer open `/admin` and press **Masuk sebagai admin** →
+   `/masuk?redirect=%2Fadmin`.
+6. After signing out, open `/akun` again in the same session → still `/masuk?redirect=%2Fakun` (no "just signed
+   out" state survives).
+
+```sh
+npx eslint client/src server/src   # clean
+npx vitest run --root client       # or: cd client && npx vitest run  -> 4 tests pass
+npm run test:unit --workspace=server
+npm run build --workspace=client
+```
+
+### Evidence (after the fix)
+
+Observed in headless Chrome (CDP) against the seeded API and the production build served by `vite preview`.
+Each run signs in through the API, loads the page, clicks the real control, waits 2.5 s and reads
+`location.pathname + search` plus the header state:
+
+| Entry point | Runs | Final path | `[aria-label="Masuk atau daftar"]` | account trigger | `/auth/me` |
+| ----------- | ---- | ---------- | ---------------------------------- | --------------- | ---------- |
+| header disclosure on `/akun` | 10 | `/` | present (guest header) | absent | 401 |
+| account rail on `/akun` | 5 | `/` | present | absent | 401 |
+| mobile drawer at 390×844 | 5 | `/` | present | absent | 401 |
+| panel rail on `/admin` (admin) | 2 | `/` | present | absent | 401 |
+| header disclosure on `/` | 2 | `/` | present | absent | 401 |
+| **unchanged**: guest opens `/akun` | 2 | `/masuk?redirect=%2Fakun` | present | absent | 401 |
+| **unchanged**: "Masuk sebagai admin" on `/admin` | 2 | `/masuk?redirect=%2Fadmin` | present | absent | 401 |
+| after signing out, later `/akun` visit | 1 | `/masuk?redirect=%2Fakun` | present | absent | 401 |
+
+Screenshots of the resulting signed-out header state: `.reviews/assets/03d/header-logout-verified.png`,
+`rail-logout-verified.png`, `mobile-logout-verified.png`, `admin-logout-verified.png`.
+
+The temporary CDP script used for these runs was deleted afterwards; it is not part of the change.
+
+Full checks at the end of the revision:
+
+```
+npx eslint client/src server/src                                   -> exit 0, no output
+cd client && npx vitest run                                        -> 2 files, 4 tests passed
+npm run test:unit --workspace=server                               -> 20 files, 320 tests passed
+npx vite build ./client                                            -> built in 2.10s (known step-09 chunk-size warning)
+```
+
+### Not done / deferred
+
+- **No permanent browser test for this flow.** There is no DOM test environment in this project (no jsdom, no
+  testing-library) and adding one is step 07's decision, not this revision's. What is permanent is the unit test
+  for the decision table, which is where the bug's logic lives; the click-through is covered by the evidence
+  above and the checklist.
+- **`useTransitions={false}` was considered and rejected** as the fix. It would make `<BrowserRouter>` commit
+  location updates synchronously and remove the race in one line, but it changes navigation timing for the whole
+  app to fix one interaction, and it hides the underlying "guard versus sign-out" problem instead of resolving
+  it. It is worth revisiting in step 09, when route code-splitting makes transitions desirable.
+- **Session expiry (401 from an API call) still goes to `/masuk?redirect=…`.** That is the correct destination
+  when a session simply ends; only an explicit "Keluar" means "take me home".
+
+### Out of scope / noticed
+
+- The note's *Decisions and trade-offs* bullet that described the old "navigate first" behaviour was corrected
+  to describe the two-step transition, so the note does not keep a claim the code no longer makes.
+- Repo-wide Prettier is still not clean (unchanged from the review; every file this revision touched is
+  format-clean).
+- `logout()` and `signOut()` now coexist in the auth context. The split is deliberate ("end the session here" vs
+  "end it and go home") but it is two names for two very close actions — see the open question below.
+
+### Open questions for the reviewer
+
+1. **Two actions or one?** `signOut()` = end session and return home; `logout()` = end it in place, for the
+   panel's "Masuk sebagai admin". The alternative is a single action plus a destination argument, which reads
+   worse at the call site. Keep the split?
+2. **`AuthProvider` inside `BrowserRouter`.** It is what lets the provider observe the committed location, and
+   nothing above the router needed the session context. Is that acceptable as the long-term shape?
+3. **Destination after sign-out.** Home (as the checklist says) rather than `/masuk`. Confirm that this is the
+   intended product behaviour, since it means a returning customer has to open the sign-in page themselves.

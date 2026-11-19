@@ -5,6 +5,7 @@ import { createCatalogRouter } from './catalog.js';
 import { createUsersRouter } from './users.js';
 import { createCartRouter } from './cart.js';
 import { createOrdersRouter } from './orders.js';
+import { createPaymentsRouter } from './payments.js';
 import { createAdminRouter } from './admin.js';
 import { createMediaRouter } from './media.js';
 import pkg from '../../package.json' with { type: 'json' };
@@ -24,6 +25,7 @@ export function createApiRouter({
   clientOrigin,
   adminUploadLimit,
   adminUploadWindowMs,
+  paymentService,
 }) {
   const router = Router();
 
@@ -67,7 +69,9 @@ export function createApiRouter({
 
   router.use('/cart', createCartRouter({ pool }));
 
-  router.use('/orders', createOrdersRouter({ pool }));
+  router.use('/orders', createOrdersRouter({ pool, paymentService }));
+
+  router.use('/payments', createPaymentsRouter({ paymentService }));
 
   router.use(
     '/users',

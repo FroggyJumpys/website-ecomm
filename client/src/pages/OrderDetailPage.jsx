@@ -2,6 +2,8 @@ import { Link, useParams } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
 import { OrderStatusBadge } from '../components/account/OrderStatusBadge.jsx';
 import { OrderTimeline } from '../components/account/OrderTimeline.jsx';
+import { PaymentPanel } from '../components/payment/PaymentPanel.jsx';
+import { PaymentStatusBadge } from '../components/payment/PaymentStatusBadge.jsx';
 import { ButtonLink } from '../components/ui/Button.jsx';
 import { ErrorState } from '../components/ui/EmptyState.jsx';
 import { PriceRow } from '../components/ui/Price.jsx';
@@ -144,9 +146,10 @@ function PaymentSummary({ order }) {
         </div>
       </div>
 
-      <div className="mt-4 space-y-1 border-t border-sand pt-4 text-spec text-ink-soft">
-        <p>
+      <div className="mt-4 space-y-2 border-t border-sand pt-4 text-spec text-ink-soft">
+        <p className="flex flex-wrap items-center gap-2">
           Metode pembayaran: <span className="text-ink">{order.paymentMethod}</span>
+          <PaymentStatusBadge status={order.paymentStatus} />
         </p>
         {order.trackingNumber && (
           <p>
@@ -224,6 +227,7 @@ export function OrderDetailPage() {
 
         <aside className="space-y-6 lg:sticky lg:top-36">
           <ShippingAddress address={order.shippingAddress} />
+          <PaymentPanel order={order} onUpdated={query.refetch} />
           <PaymentSummary order={order} />
 
           <p className="text-sm text-ink-soft">

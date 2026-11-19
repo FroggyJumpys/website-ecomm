@@ -36,6 +36,8 @@ export async function migrateTestDatabase() {
 export async function resetDatabase() {
   await testPool.query(`
     TRUNCATE TABLE
+      tbl_notifikasi_pembayaran,
+      tbl_pembayaran,
       tbl_riwayat_status_pesanan,
       tbl_item_pesanan,
       tbl_pesanan,

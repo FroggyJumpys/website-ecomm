@@ -80,14 +80,13 @@ function TopBar() {
 export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { count } = useCart();
-  const { status, user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { status, user, signOut } = useAuth();
 
   const handleLogout = () => {
     setMenuOpen(false);
-    // Leave the protected page before the session drops; see AccountMenu.
-    navigate(routes.home);
-    void logout();
+    // The provider takes the visitor home and only then drops the session, so
+    // this never lands on the guard's /masuk?redirect=… (see signOut.js).
+    void signOut();
   };
 
   return (

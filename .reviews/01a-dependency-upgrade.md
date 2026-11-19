@@ -10,6 +10,24 @@
 
 I checked the latest published version of every package the stack needs (against the npm registry on this machine) and fixed the versions step 01b scaffolds with. Nothing was installed or written to the codebase in this step; the only files touched are this note and `AGENTS.md` (to remove the leftover "Tailwind v3" wording after the switch to latest Tailwind).
 
+## Files added / changed
+
+This is an audit step: no package was installed and no application file was created or edited. Only documentation was written.
+
+| File | Change |
+| ---- | ------ |
+| `.reviews/01a-dependency-upgrade.md` | This note: the audited version tables, the decisions behind them, and the verification procedure |
+| `AGENTS.md` | Removed the leftover "Tailwind v3" wording after the switch to latest Tailwind, so the stack notes agree with the v4 decision (see *Out of scope / noticed*) |
+
+Read but **not** modified, to confirm that the versions 01b scaffolded are the ones audited here:
+
+| File | Why it was read |
+| ---- | --------------- |
+| `package.json` (root) | Declared ESLint/`@eslint/js`/tooling ranges |
+| `client/package.json` | Declared frontend ranges |
+| `server/package.json` | Declared backend ranges |
+| `package-lock.json` | Resolved versions actually installed |
+
 ## Environment checked
 
 | Item | Value |
@@ -23,7 +41,7 @@ Node 22 LTS satisfies every package below (Vite 8 needs `^20.19 || >=22.12`). If
 
 ## Audited versions
 
-Latest stable at the time of the audit. These are the versions step 01b writes into the manifests.
+Latest stable at the time of the audit. These are the versions step 01b writes into the manifests as `^` ranges, and the versions the lockfile resolved. All 34 rows are machine-checked against `package-lock.json` (see *How to run and verify*); the two rows that drifted from the first draft of this table are corrected in *Revision 1*.
 
 **Frontend (`client/`)**
 
@@ -62,20 +80,72 @@ Latest stable at the time of the audit. These are the versions step 01b writes i
 | Package | Version | Notes |
 | ------- | ------- | ----- |
 | `eslint` | **9.39.5** | Deliberately **not** 10.14.0, see below |
-| `@eslint/js` | 10.0.1 | Flat config preset, compatible with ESLint 9 |
+| `@eslint/js` | **9.39.5** | Flat config preset, **same major as ESLint 9.39.5**. Declares no `eslint` peer dependency; engines `^18.18 || ^20.9 || >=21.1`. 10.0.1 is rejected, see below |
 | `eslint-plugin-react` | 7.37.5 | peer range stops at ESLint `^9.7` |
 | `eslint-plugin-react-hooks` | 7.1.1 | Supports 9 and 10 |
 | `eslint-plugin-react-refresh` | 0.5.7 | Supports 9 and 10 |
 | `globals` | 17.14.0 | Browser + Node global sets |
 | `prettier` | 3.10.0 | Formatting only, no ESLint-Prettier plugin |
 | `concurrently` | 10.0.7 | `npm run dev` runs client + server |
-| `nodemon` | 3.1.14 | Server dev reload |
+| `nodemon` | 3.1.11 | Server dev reload. This is what the scaffold declares (`^3.1.11`) and what the lockfile resolves; 3.1.14 is the current latest and a bump is a deliberate later step |
 | `vitest` | 5.1.0 | peer `vite ^6 || ^7 || ^8`, so it matches Vite 8 |
 | `supertest` | 7.3.2 | HTTP assertions against the Express app |
 
+## How to run and verify
+
+This is a planning-only step. **No application URL, install, build, lint or test run applies**, because this
+step installs and executes nothing. Every command below is read-only: npm registry metadata, the manifests
+and the lockfile. Run them from the repository root.
+
+```sh
+# 1. Toolchain the versions were audited against
+node --version                     # v22.14.0 here; anything >=22.12 is valid
+npm --version                      # 11.17.0 here
+
+# 2. The package this revision is about (P1)
+npm view @eslint/js@9.39.5 version peerDependencies engines --json
+#   -> no peerDependencies; engines ^18.18.0 || ^20.9.0 || >=21.1.0
+npm view eslint@9.39.5 version engines --json
+#   -> engines ^18.18.0 || ^20.9.0 || >=21.1.0
+npm view @eslint/js@10.0.1 peerDependencies engines --json
+#   -> peerDependencies.eslint ^10.0.0; engines ^20.19.0 || ^22.13.0 || >=24   (rejected)
+
+# 3. Peer ranges the other decisions rest on
+npm view eslint-plugin-react@7.37.5 peerDependencies --json   # eslint ^3 ... ^9.7
+npm view vite@8.3.8 engines --json                            # ^20.19.0 || >=22.12.0
+npm view @vitejs/plugin-react@6.3.0 peerDependencies --json   # vite ^8.0.0
+npm view vitest@5.1.0 peerDependencies engines --json         # vite ^6.4 || ^7 || ^8; node ^22.12 || ^24 || >=26
+
+# 4. Any single row of the table: is the recorded version a published version?
+npm view <package>@<version> version
+
+# 5. Every row of the table against what step 01b actually installed
+node -e "const l=require('./package-lock.json');const t={'react':'19.3.1','react-dom':'19.3.1','react-router-dom':'7.18.5','vite':'8.3.8','@vitejs/plugin-react':'6.3.0','tailwindcss':'4.3.5','@tailwindcss/vite':'4.3.5','@tailwindcss/forms':'0.5.11','@tanstack/react-query':'5.107.1','react-icons':'5.7.0','clsx':'2.1.1','tailwind-merge':'3.7.0','express':'5.3.0','pg':'8.23.1','zod':'4.6.7','bcrypt':'6.0.0','jsonwebtoken':'9.0.3','cookie-parser':'1.4.7','cors':'2.8.6','helmet':'8.3.0','express-rate-limit':'8.7.4','dotenv':'18.0.10','morgan':'1.12.1','eslint':'9.39.5','@eslint/js':'9.39.5','eslint-plugin-react':'7.37.5','eslint-plugin-react-hooks':'7.1.1','eslint-plugin-react-refresh':'0.5.7','globals':'17.14.0','prettier':'3.10.0','concurrently':'10.0.7','nodemon':'3.1.11','vitest':'5.1.0','supertest':'7.3.2'};let bad=0;for(const k of Object.keys(t)){const p=l.packages['node_modules/'+k]||l.packages['client/node_modules/'+k]||l.packages['server/node_modules/'+k];const got=p&&p.version;const ok=got===t[k];if(!ok)bad++;console.log((ok?'ok   ':'DRIFT')+'  '+k.padEnd(28)+' note='+t[k].padEnd(9)+' lock='+got);}console.log('---');console.log(bad===0?'all '+Object.keys(t).length+' rows match the lockfile':bad+' row(s) drifted');"
+#   -> 34 ok lines, then: all 34 rows match the lockfile
+
+# 6. AGENTS.md consistency: Tailwind v4 is CSS-first, so no JS/PostCSS config file may exist
+node -e "const fs=require('fs');for(const p of ['tailwind.config.js','client/tailwind.config.js','postcss.config.js','client/postcss.config.js'])console.log(p,fs.existsSync(p)?'PRESENT':'absent')"
+#   -> all four absent
+```
+
+Checklist the reviewer can tick:
+
+- [ ] `node --version` is `>=22.12` and `npm --version` prints a version.
+- [ ] Command 2 matches its comments: `@eslint/js@9.39.5` declares no `eslint` peer dependency, and
+      `@eslint/js@10.0.1` requires ESLint `^10.0.0` with engines that exclude Node 22.12.
+- [ ] `eslint` and `@eslint/js` are both **9.39.5** in the tables above, in the root `package.json`
+      (`"eslint": "^9.39.5"`, `"@eslint/js": "^9.39.5"`) and in `package-lock.json`.
+- [ ] Command 5 prints `all 34 rows match the lockfile` — the audit table and step 01b agree.
+- [ ] Command 6 reports all four config files absent, and `client/src` has no `.ts`/`.tsx` files, so the
+      note still agrees with the stack section of `AGENTS.md` (Tailwind v4, JavaScript only).
+- [ ] No dependency or application file belongs to this step. The repository has no commits yet, so
+      `git --no-optional-locks status --short` also lists later steps' uncommitted work; compare against
+      the *Files added / changed* table above instead of expecting a clean tree.
+
 ## Decisions and trade-offs
 
-- **ESLint 9 over 10.** `eslint-plugin-react` still declares `eslint: ^3 … ^9.7`, so ESLint 10 would only install with a peer warning and could break at runtime. Sticking to the newest 9.x keeps `npm install` clean. Revisit when the plugin ships ESLint 10 support.
+- **ESLint 9 (and `@eslint/js` 9) over 10.** `eslint-plugin-react` still declares `eslint: ^3 … ^9.7`, so ESLint 10 would only install with a peer warning and could break at runtime. `@eslint/js` moves on the **same major** as ESLint, because `@eslint/js@10.0.1` declares `peerDependencies.eslint: ^10.0.0` — the exact conflict this decision exists to avoid — and engines `^20.19 || ^22.13 || >=24`, which excludes the `>=22.12` floor; `@eslint/js@9.39.5` declares no `eslint` peer at all and does support the floor. Both stay on 9.39.5, the newest 9.x, so `npm install` stays peer-clean. Revisit both together when the plugin ships ESLint 10 support.
+- **Node `>=22.12` is set by the toolchain, not guessed.** `vitest@5.1.0` declares `^22.12.0 || ^24.0.0 || >=26.0.0`, and `vite@8.3.8` / `@vitejs/plugin-react@6.3.0` declare `^20.19.0 || >=22.12.0`. Every other row accepts 22.12.0 (the next strictest are `concurrently` `>=22` and `react-router-dom` `>=20`), so 22.12 is the highest lower bound in the stack — the floor is `>=22.12` rather than `>=22` because of it.
 - **Tailwind 4, CSS-first.** Following the "latest" decision, the theme lives in `@theme` inside `client/src/styles/theme.css`; `postcss.config.js` and `tailwind.config.js` are dropped. This is a real behaviour change for anyone used to v3: renamed utilities (`shadow`→`shadow-sm`, `rounded`→`rounded-sm`, `outline-none`→`outline-hidden`, `flex-shrink-0`→`shrink-0`, `bg-opacity-*`→`bg-black/50`) must be used consistently. I added a warning line to `AGENTS.md` so later steps do not copy v3 classes out of `legacy-template/`.
 - **`@tailwindcss/vite` instead of PostCSS.** Fewer moving parts and no autoprefixer config; this removes `postcss` and `autoprefixer` from the dependency list entirely.
 - **`react-icons` instead of Font Awesome.** The legacy pages load a CSS `<link>` from `node_modules`, which does not survive bundling well. `react-icons` ships only the icons imported, so the bundle stays small.
@@ -128,3 +198,80 @@ Latest stable at the time of the audit. These are the versions step 01b writes i
 #### Next action
 
 Append `Revision 1` to this same file addressing both findings. Leave the status `Changes requested` until re-review; only the reviewer may set `Approved`.
+
+## Revision 1 — 2026-11-19
+
+Response to the review of 2026-11-18. Both findings are addressed; one further drift was found and
+corrected while re-checking every row. The status stays `Changes requested` — only the reviewer may set
+`Approved`.
+
+### P1 — `@eslint/js` is now 9.39.5, matched to ESLint 9.39.5
+
+- The audit table was wrong and now records **`@eslint/js` 9.39.5**, in the same row that explains why.
+- The finding is confirmed against the registry:
+  - `npm view @eslint/js@10.0.1 peerDependencies engines --json` → `eslint: ^10.0.0` and engines
+    `^20.19.0 || ^22.13.0 || >=24`. That reintroduces the peer conflict the ESLint-9 decision exists to
+    avoid **and** excludes Node 22.12.x while the declared floor is `>=22.12`.
+  - `npm view @eslint/js@9.39.5 peerDependencies engines --json` → **no** `eslint` peer dependency at all
+    (it is a plain shared-config package, not a plugin), engines `^18.18.0 || ^20.9.0 || >=21.1.0`.
+- The ESLint bullet under *Decisions and trade-offs* now covers both packages and says why they move together.
+- **No manifest change was needed, so none was made.** Step 01b already scaffolded the corrected pair: root
+  `package.json` declares `"eslint": "^9.39.5"` and `"@eslint/js": "^9.39.5"`, and `package-lock.json`
+  resolves both to 9.39.5. The stale table was the only disagreement, so the audit and 01b now agree
+  without touching code or the lockfile.
+
+### P1b — one more audit/scaffold drift, fixed the same way
+
+- `nodemon` was recorded as 3.1.14 while the scaffold declares `^3.1.11` and the lockfile resolves 3.1.11
+  (`npm view nodemon version` → 3.1.14 is the current latest, published 2026-03-06).
+- The row now records **3.1.11**, the version step 01b actually installed, and says so.
+- Why not bump the manifest instead: `AGENTS.md` says a version change after a step is a deliberate,
+  separate step, not a silent drive-by upgrade, and 01b is already approved. `^3.1.11` is a caret range,
+  so a later deliberate bump — or a fresh install without the lockfile — resolves 3.1.14.
+- All 34 rows are now machine-checked against `package-lock.json` by the drift command in *How to run and
+  verify*, which prints `all 34 rows match the lockfile`.
+
+### P2 — `Files added / changed` and `How to run and verify` are now in the note
+
+- Both mandatory sections were added in `.reviews/_TEMPLATE.md` order: *Files added / changed* right after
+  the summary (listing what was written, plus the manifests read but not modified), and *How to run and
+  verify* just before *Decisions and trade-offs*.
+- The verification section is entirely read-only — registry metadata (`npm view` for versions, peers and
+  engines), the three manifests and `package-lock.json` — and it states plainly that **no application URL,
+  install, build, lint or test run applies** to this planning-only step. It ends with a six-item checklist.
+- One checklist item explains why the working tree is not clean: the repository has no commits yet, so
+  `git status` also shows later steps' uncommitted work; the *Files added / changed* table is the authority
+  for this step's scope.
+- I ran every documented command before writing it down; the results are recorded below.
+
+### Files changed by this revision
+
+| File | Change |
+| ---- | ------ |
+| `.reviews/01a-dependency-upgrade.md` | `@eslint/js` → 9.39.5, `nodemon` → 3.1.11, new *Files added / changed* and *How to run and verify* sections, ESLint decision bullet expanded and a Node-floor bullet added, this revision |
+
+Not modified: `AGENTS.md`, `package.json`, `client/package.json`, `server/package.json`,
+`package-lock.json`. No application code exists in this step, so nothing else could change.
+
+### Re-run of the documented checks (this machine)
+
+| Check | Result |
+| ----- | ------ |
+| `node --version`, `npm --version` | `v22.14.0`, `11.17.0` |
+| `@eslint/js@9.39.5` peers/engines | no peer deps; `^18.18.0 \|\| ^20.9.0 \|\| >=21.1.0` |
+| `@eslint/js@10.0.1` peers/engines | `eslint ^10.0.0`; `^20.19.0 \|\| ^22.13.0 \|\| >=24` |
+| `eslint-plugin-react@7.37.5` peer | `eslint ^3 ... ^9.7` |
+| `vite@8.3.8`, `@vitejs/plugin-react@6.3.0` engines | `^20.19.0 \|\| >=22.12.0` |
+| `vitest@5.1.0` peers/engines | vite `^6.4 \|\| ^7 \|\| ^8`; node `^22.12.0 \|\| ^24.0.0 \|\| >=26.0.0` |
+| Engines of all 34 selected versions | every one accepts Node 22.12.0; `vitest` sets the floor |
+| Lockfile drift check | `all 34 rows match the lockfile` (34 `ok`, 0 `DRIFT`) |
+| `AGENTS.md` consistency | no `tailwind.config.js`, no `postcss.config.js`, 0 `.ts`/`.tsx` files under `client/src`, `@theme` present in `client/src/styles/theme.css` |
+
+### Still open
+
+- The four original open questions were dispositioned in the review (ESLint 9 accepted, React 19 and
+  TanStack Query confirmed, Node `>=22.12` accepted *provided every selected package supports it* —
+  checked above, all do). Nothing new blocks approval.
+- If the reviewer would rather have `nodemon` bumped to 3.1.14 than recorded at 3.1.11, that is a
+  deliberate dependency-bump step with its own note; say the word and I will file it rather than change
+  an approved step.

@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { FiBox, FiClipboard, FiExternalLink, FiGrid, FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../context/authContext.js';
 import { useScrollToTop } from '../hooks/useScrollToTop.js';
@@ -18,15 +18,13 @@ const icons = {
  * navigation competing with the operator's own screens.
  */
 export function AdminLayout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   useScrollToTop();
 
   const handleLogout = () => {
-    // Leave the guarded area before the session drops; the guard would
-    // otherwise report "signed out" as "access denied".
-    navigate(routes.home);
-    void logout();
+    // The provider takes the visitor home and only then drops the session, so
+    // the admin guard never reports "signed out" as "access denied".
+    void signOut();
   };
 
   const railLink = (isPill) => ({ isActive }) =>

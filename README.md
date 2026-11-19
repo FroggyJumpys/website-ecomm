@@ -99,6 +99,15 @@ The client reads one optional variable, documented in [`client/.env.example`](./
 `/api` is proxied to Express — which is what both the Vite dev server and the production web server
 do.
 
+Midtrans keys go in `server/.env` as `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY` and
+`MIDTRANS_MERCHANT_ID`, with `MIDTRANS_IS_PRODUCTION=false` for sandbox. `MIDTRANS_EXPIRY_MINUTES`
+(default 120) sets how long a Snap transaction stays payable, and `MIDTRANS_SNAP_SCRIPT_URL`
+overrides the script host that is otherwise derived from `MIDTRANS_IS_PRODUCTION`. The legacy `MT_*`
+names are accepted as aliases. All of them are optional: without keys the API still boots and the
+payment endpoints answer `503 PAYMENT_NOT_CONFIGURED`, so the shop runs before the credentials exist.
+Sandbox keys start with `SB-Mid-`; a production key in a development checkout is a mistake, not a
+shortcut.
+
 `docker-compose.yml` publishes the database on `${DB_PORT:-5432}`. If something else already owns
 5432 (a native PostgreSQL service, for example), create a root `.env` containing `DB_PORT=5433`
 and set `DATABASE_URL` in `server/.env` to `...@localhost:5433/ba_dekor`. Both `.env` files are
@@ -140,6 +149,11 @@ Base path `/api/v1`. Errors always use the shape `{ "error": { "code", "message"
 | POST   | `/orders`                                    | Turn the signed-in customer's cart into an order       |
 | GET    | `/users/me/orders`                           | Order history, paginated, with status counts           |
 | GET    | `/users/me/orders/:orderNumber`              | One owned order, or `404 ORDER_NOT_FOUND`              |
+| POST   | `/orders/:orderNumber/payments`              | Create or reuse a Snap transaction for an owned order  |
+| GET    | `/orders/:orderNumber/payments`              | Stored payment state: attempt, QRIS code, expiry       |
+| POST   | `/orders/:orderNumber/payments/sync`         | Reconcile the payment with the provider                |
+| GET    | `/payments/config`                           | Public Snap script URL, client key, availability       |
+| POST   | `/payments/midtrans/notification`            | Midtrans webhook; signature-checked, no session        |
 | GET    | `/admin/products`                            | Admin product list, hidden included                    |
 | GET    | `/admin/products/:id`                        | One product, hidden included                           |
 | POST   | `/admin/products`                            | Create a product                                       |
@@ -250,8 +264,11 @@ purchase needs a new key.
 
 - `POST /orders` answers `201` for a new order and `200` for a replay.
 - Shipping is a flat rate chosen from a fixed list: `reguler` Rp 85.000, `kargo` Rp 250.000,
-  `workshop` Rp 0. Payment is a demo choice (`bca` → "Transfer bank BCA", `bni-va` → "Virtual account
-  BNI", `kartu` → "Kartu kredit"); no payment provider is contacted and no card data is accepted.
+  `workshop` Rp 0. Payment is chosen from `bca` → "Transfer bank BCA", `bni-va` → "Virtual account
+  BNI", `qris` → "QRIS", `kartu` → "Kartu kredit". The policy id is stored beside the label
+  (`payment_method_id`), so the provider channel is never recovered by parsing display text. Checkout
+  itself contacts no provider and accepts no card data: the order and its payment attempt are
+  separate steps, described under _Payment endpoints_.
 - Checkout is **all or nothing**. The whole cart is validated against current stock, aggregated per
   product across its variants, then the order, its item snapshots, its first status event, the stock
   deduction and the cart clearing commit together — or none of them do. Unlike the guest merge,
@@ -295,6 +312,100 @@ Order numbers are `BD-<year>-<sequence>`, allocated from one PostgreSQL sequence
 `Asia/Makassar` (WITA), where the shop operates, and the sequence never resets, so a new year cannot
 reissue an old number. The migration starts it at `greatest(1000, highest existing suffix + 1)`, which
 keeps a clean migrate-then-seed database clear of the demo orders' static numbers.
+
+### Payment endpoints
+
+Online payment uses **Midtrans Snap** in sandbox mode. The order comes first and the payment attempt
+second: checkout commits the order without calling the provider, then the confirmation page asks for
+a Snap token. That ordering is deliberate — a provider outage leaves a payable order with a retry
+button instead of losing the purchase.
+
+- **The server prices everything.** `gross_amount` is read from the stored order
+  (subtotal + shipping − discount). The browser never sends an amount, and a Snap payload whose items
+  do not add up to the total throws before the provider is called.
+- **`POST /orders/:orderNumber/payments` requires the session** and only works on an order the caller
+  owns. It answers `201` with the Snap token and redirect URL; calling it again while the attempt is
+  still payable returns the same token instead of opening a second transaction.
+- **Every attempt is its own row.** Midtrans refuses a reused `order_id`, so a retry after an expiry
+  becomes `BD-2026-1000-2` and the earlier attempt stays in `tbl_pembayaran` for reconciliation.
+- **QRIS is a payment choice, not a step inside the provider.** `qris` maps to Snap's `other_qris`
+  channel, so a customer who chooses it at checkout is not asked to choose again on Midtrans. Snap
+  shows the transaction-specific dynamic code with its instructions and expiry on its own page.
+- **The QR code is stored, not regenerated.** `GET /orders/:orderNumber/payments` returns the newest
+  attempt with `qrCodeUrl` and `expiresAt`, so the order page redraws the same code after a reload
+  instead of opening a second provider transaction. `qrCodeUrl` comes from the provider's
+  `generate_qr_code` action and is only kept when it is an `https:` URL, which makes it safe to use as
+  an `<img src>`. A `pending` answer that carries the code counts as no status change, so the code and
+  the channel are recorded separately from the status transition.
+- **Scanning a code is not a payment.** The order stays `pending` until a signature-checked
+  notification (or a `sync` that asks the provider) reports a settlement; the Snap success page and
+  the on-screen countdown prove nothing on their own. An expiry moves the attempt to `expired` and the
+  page offers a retry, which starts a new attempt and therefore a new code.
+- **`tbl_pesanan.payment_status`** is one of `unpaid`, `pending`, `paid`, `failed`, `expired`,
+  `refunded`, and it only moves forward. The single deliberate exception is `failed`/`expired` →
+  `paid`, because a late settlement can still arrive after a retry was shown as failed.
+- **`sync` asks the provider** for the authoritative status. It exists because a webhook cannot reach
+  a developer machine, and it is what the page calls when the Snap popup closes.
+- **The webhook is the only truth for "paid".** The browser's `onSuccess` triggers a `sync`; it never
+  writes a status itself. A notification is signature-checked
+  (`sha512(order_id + status_code + gross_amount + server key)`), the amount must equal the attempt's
+  `gross_amount`, and the currency must be `IDR`. A replay is recognised by a `sha256` fingerprint
+  unique per `(provider, key)` and answered `200` so Midtrans stops retrying. Unknown orders, stale
+  transitions and amount mismatches are recorded in `tbl_notifikasi_pembayaran` with their outcome and
+  are acknowledged too, because a non-2xx response only causes more retries.
+- **No card data is stored**, and the server key never leaves the server. `/payments/config` returns
+  the client key because Snap needs it in the browser; that key is public by design.
+
+| Error                           | When                                              |
+| ------------------------------- | ------------------------------------------------- |
+| `503 PAYMENT_NOT_CONFIGURED`    | No Midtrans credentials in the environment        |
+| `401 INVALID_PAYMENT_SIGNATURE` | The notification signature does not match         |
+| `422 PAYMENT_CURRENCY_MISMATCH` | A notification in a currency other than IDR       |
+| `502 PAYMENT_PROVIDER_ERROR`    | Midtrans could not be reached or refused the call |
+| `404 ORDER_NOT_FOUND`           | No such order, or it belongs to another customer  |
+
+```sh
+# Public configuration. The server key must never appear in this response
+curl localhost:4000/api/v1/payments/config
+
+# Start (or resume) the payment for one owned order
+curl -X POST localhost:4000/api/v1/orders/BD-2026-1000/payments -b jar.txt
+
+# Stored payment state: the attempt, the QRIS code and the deadline. No provider call.
+curl localhost:4000/api/v1/orders/BD-2026-1000/payments -b jar.txt
+
+# Ask the provider for the real status when no webhook can reach you
+curl -X POST localhost:4000/api/v1/orders/BD-2026-1000/payments/sync -b jar.txt
+```
+
+#### Testing the webhook locally
+
+Midtrans must reach the API from the internet, so a local webhook needs a tunnel:
+
+```sh
+# 1. Expose the API (the path below must be the full public URL)
+ngrok http 4000
+
+# 2. Midtrans dashboard > Settings > Configuration, then set
+#    Payment Notification URL to
+#    https://<tunnel-host>/api/v1/payments/midtrans/notification
+#
+# 3. Pay in the sandbox popup and watch the server log. The notification is
+#    only applied when its signature verifies against MIDTRANS_SERVER_KEY.
+```
+
+Without a tunnel, `POST /orders/:orderNumber/payments/sync` takes the same reconciliation path — it
+reads the status from the provider over an outbound call, so nothing has to reach the machine. The
+sandbox payment flow can be exercised end to end that way; only the notification itself stays
+unverified until a tunnel or a deployed environment exists.
+
+To exercise **QRIS** in the sandbox, check out with `paymentMethod: "qris"` and press _Bayar
+sekarang_. The code can be paid from a QRIS-capable sandbox wallet, or simulated from the transaction
+detail in the Midtrans dashboard. Whatever the screen shows, the order only becomes `paid` when the
+notification (or a `sync`) says the payment settled; leaving the code unpaid past its expiry makes the
+attempt `expired` and the next press of _Bayar sekarang_ issues a new attempt and a new code. Pending,
+settlement and expiry QRIS notifications are covered by the API tests, so the states can be checked
+without credentials.
 
 ### Catalogue queries
 

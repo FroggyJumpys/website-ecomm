@@ -218,13 +218,13 @@ export function createCheckoutStore(pool) {
           `INSERT INTO tbl_pesanan (
              order_number, user_id, status,
              subtotal, shipping_cost, discount, total,
-             shipping_method, payment_method,
+             shipping_method, payment_method, payment_method_id,
              shipping_recipient, shipping_phone, shipping_street, shipping_district,
              shipping_city, shipping_province, shipping_postal_code, shipping_notes,
              idempotency_key, request_fingerprint
            )
-           VALUES ($1, $2, 'processing', $3, $4, 0, $5, $6, $7,
-                   $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+           VALUES ($1, $2, 'processing', $3, $4, 0, $5, $6, $7, $8,
+                   $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING id`,
           [
             number,
@@ -234,6 +234,7 @@ export function createCheckoutStore(pool) {
             totals.total,
             input.shippingMethod,
             paymentLabelFor(input.paymentMethod),
+            input.paymentMethod,
             snapshot.recipient,
             snapshot.phone,
             snapshot.street,

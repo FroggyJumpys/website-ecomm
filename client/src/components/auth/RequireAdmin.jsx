@@ -43,7 +43,7 @@ export function RequireAdmin({ children }) {
   const { status, isAdmin, user, logout } = useAuth();
   const location = useLocation();
 
-  if (status === 'restoring') {
+  if (status === 'restoring' || status === 'signing-out') {
     return (
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8" aria-busy="true">
         <Skeleton className="h-7 w-56 rounded-full" />

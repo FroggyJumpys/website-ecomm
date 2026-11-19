@@ -46,6 +46,7 @@ describe('paymentLabelFor', () => {
   it('pins the exact labels the order stores', () => {
     expect(paymentLabelFor('bca')).toBe('Transfer bank BCA');
     expect(paymentLabelFor('bni-va')).toBe('Virtual account BNI');
+    expect(paymentLabelFor('qris')).toBe('QRIS');
     expect(paymentLabelFor('kartu')).toBe('Kartu kredit');
   });
 
@@ -59,6 +60,7 @@ describe('paymentLabelFor', () => {
     expect(PAYMENT_METHODS).toEqual([
       { id: 'bca', label: 'Transfer bank BCA' },
       { id: 'bni-va', label: 'Virtual account BNI' },
+      { id: 'qris', label: 'QRIS' },
       { id: 'kartu', label: 'Kartu kredit' },
     ]);
   });

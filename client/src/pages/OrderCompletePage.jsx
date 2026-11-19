@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { FiCheck, FiPrinter } from 'react-icons/fi';
 import { OrderStatusBadge } from '../components/account/OrderStatusBadge.jsx';
+import { PaymentPanel } from '../components/payment/PaymentPanel.jsx';
 import { ButtonLink } from '../components/ui/Button.jsx';
 import { EmptyState, ErrorState } from '../components/ui/EmptyState.jsx';
 import { PriceRow } from '../components/ui/Price.jsx';
@@ -8,7 +9,6 @@ import { Skeleton } from '../components/ui/Spinner.jsx';
 import { useOrder } from '../hooks/useAccount.js';
 import { formatDate, formatIDR } from '../lib/format.js';
 import { routes } from '../lib/nav.js';
-import { paymentInstructions } from '../lib/shipping.js';
 
 function CompleteSkeleton() {
   return (
@@ -78,40 +78,6 @@ function OrderItems({ order }) {
           <PriceRow label="Total" value={order.total} strong />
         </div>
       </div>
-    </section>
-  );
-}
-
-function PaymentInstructions({ order }) {
-  const steps = paymentInstructions(order.paymentMethod);
-
-  return (
-    <section
-      aria-labelledby="langkah-pembayaran"
-      className="rounded-card border border-sand bg-surface p-5"
-    >
-      <h2 id="langkah-pembayaran" className="font-display text-heading text-ink">
-        Selesaikan pembayaran
-      </h2>
-      <p className="mt-1 text-spec text-ink-soft">{order.paymentMethod}</p>
-
-      <ol className="mt-4 space-y-3">
-        {steps.map((step, index) => (
-          <li key={step} className="flex gap-3 text-sm text-ink-soft">
-            <span
-              aria-hidden="true"
-              className="tabular grid size-5 shrink-0 place-items-center rounded-full bg-sand text-[0.6875rem] font-medium text-ink"
-            >
-              {index + 1}
-            </span>
-            <span className="leading-relaxed">{step}</span>
-          </li>
-        ))}
-      </ol>
-
-      <p className="mt-4 border-t border-sand pt-3 text-spec text-ink-soft">
-        Pesanan disiapkan setelah pembayaran terverifikasi. Kami kabari lewat WhatsApp.
-      </p>
     </section>
   );
 }
@@ -220,7 +186,7 @@ export function OrderCompletePage() {
         </div>
 
         <aside className="space-y-6">
-          <PaymentInstructions order={order} />
+          <PaymentPanel order={order} onUpdated={query.refetch} />
           <ShippingAddress address={order.shippingAddress} />
 
           <p className="text-sm text-ink-soft">

@@ -6,13 +6,15 @@ import { Skeleton } from '../ui/Spinner.jsx';
 /**
  * Route guard for customer pages. While the session is being restored it renders
  * a quiet skeleton instead of bouncing a signed-in user to /masuk, and it keeps
- * the intended path so the form can send them back after signing in.
+ * the intended path so the form can send them back after signing in. A sign-out
+ * in flight gets the same skeleton: the visitor is on their way home, so this
+ * guard must not turn that into /masuk?redirect=….
  */
 export function RequireAuth({ children }) {
   const { status } = useAuth();
   const location = useLocation();
 
-  if (status === 'restoring') {
+  if (status === 'restoring' || status === 'signing-out') {
     return (
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8" aria-busy="true">
         <Skeleton className="h-7 w-56 rounded-full" />

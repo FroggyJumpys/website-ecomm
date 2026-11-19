@@ -181,6 +181,10 @@ describe('get', () => {
         notes: 'Pagar hitam, titip ke satpam.',
       },
       paymentMethod: 'Transfer bank BCA',
+      // Orders written before step 05b have no policy id; the payment state is
+      // `unpaid` because nothing was ever sent to a provider for them.
+      paymentMethodId: null,
+      paymentStatus: 'unpaid',
       trackingNumber: null,
       cancellationReason: null,
       timeline: [{ status: 'processing', at: '2026-11-05T02:20:00.000Z', note: '' }],
@@ -204,6 +208,8 @@ describe('get', () => {
       'items',
       'orderNumber',
       'paymentMethod',
+      'paymentMethodId',
+      'paymentStatus',
       'shippingAddress',
       'shippingCost',
       'shippingMethod',

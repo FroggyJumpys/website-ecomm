@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   FiGrid,
   FiHeart,
@@ -45,14 +45,13 @@ function breadcrumbItems(pathname) {
  * content so the page starts immediately.
  */
 export function AccountLayout() {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const { pathname } = useLocation();
-  const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Leave the guarded area before the session drops; see AccountMenu.
-    navigate(routes.home);
-    void logout();
+    // The provider takes the visitor home and only then drops the session, so
+    // this never lands on the guard's /masuk?redirect=… (see signOut.js).
+    void signOut();
   };
 
   return (

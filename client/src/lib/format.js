@@ -24,6 +24,17 @@ export function formatDate(value) {
   return dateFormatter.format(new Date(value));
 }
 
+const timeFormatter = new Intl.DateTimeFormat('id-ID', {
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+/** The clock time a deadline falls on: "14.05", in the customer's own zone. */
+export function formatTime(value) {
+  if (!value) return '';
+  return timeFormatter.format(new Date(value));
+}
+
 /** Percentage saved, rounded down, for strike-through compare pricing. */
 export function discountPercent(price, compareAtPrice) {
   if (!compareAtPrice || compareAtPrice <= price) return 0;

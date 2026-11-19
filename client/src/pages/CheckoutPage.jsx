@@ -289,7 +289,7 @@ export function CheckoutPage() {
                 step="3"
                 id="langkah-pembayaran"
                 title="Pembayaran"
-                description="Pilih cara bayar. Instruksi lengkap muncul di halaman konfirmasi."
+                description="Pilih cara bayar. Setelah pesanan dibuat, kamu menyelesaikan pembayaran di halaman aman Midtrans."
               />
               <div className="mt-5">
                 <PaymentPicker value={paymentId} onChange={setPaymentId} />
@@ -365,7 +365,8 @@ export function CheckoutPage() {
             </Button>
 
             <p className="mt-3 flex items-start gap-2 text-spec text-ink-soft">
-              Pembayaran diproses melalui kanal resmi. BaDekor tidak menyimpan data kartu.
+              Pesanan dibuat dulu, lalu pembayaran diselesaikan di halaman aman Midtrans. BaDekor tidak
+              menyimpan data kartu.
             </p>
           </div>
 

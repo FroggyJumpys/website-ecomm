@@ -19,12 +19,21 @@ Guidance for AI agents (and humans) working on **ecomm-web**, a group project th
 | Database | PostgreSQL via `pg` + plain SQL migrations                      |
 | Auth     | JWT in httpOnly cookie, passwords hashed with `bcrypt`          |
 | Validate | `zod` on the backend, controlled forms on the frontend          |
+| Payments | **Midtrans Snap** (sandbox in development) via the official `midtrans-client` SDK; transactions are created server-side and payment state is confirmed by signed webhooks |
 
 Stack choices not stated by the team (Vite, `pg`, zod, JWT cookie, TanStack Query) are proposals. They get confirmed or changed in review 01.
 
 All dependencies are kept on their **latest stable major/minor version** at the time each step is done (see step 01a for the audited version table). Version bumps after that point are deliberate, separate steps, not silent drive-by upgrades.
 
 Tailwind is on **v4**, which means CSS-first configuration: design tokens live in `client/src/styles/theme.css` inside `@theme { }`, there is no `tailwind.config.js`, and the Vite plugin `@tailwindcss/vite` replaces the PostCSS setup. v3 class names that were renamed in v4 (`shadow` → `shadow-sm`, `rounded` → `rounded-sm`, `outline-none` → `outline-hidden`, `flex-shrink-0` → `shrink-0`, and so on) must not be used.
+
+Payment integration rules (step 05b):
+
+- **The server prices every transaction.** The Midtrans payload is built from the persisted order and its authoritative IDR total. A client-supplied amount, item list or paid flag is never trusted, and the final charge is re-checked against the stored total before it is sent.
+- **Credentials stay in `server/.env`.** `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY`, `MIDTRANS_MERCHANT_ID` and `MIDTRANS_IS_PRODUCTION=false` for sandbox; `.env.example` documents them with placeholders only. The existing `MT_*` aliases are accepted so a local file that already uses them keeps working. The server key never leaves the server; the client key is public by design and is handed to the browser by the API.
+- **No card data ever reaches the app.** Card details, VA numbers and QR codes are collected by the Midtrans Snap popup or its hosted page, never by a form in `client/`.
+- **Webhooks are the only source of truth for paid status.** Every notification is signature-verified (`sha512(order_id + status_code + gross_amount + server_key)`), recorded once, and applied idempotently; the browser redirect only triggers a re-read, it never marks an order paid.
+- **Status moves forward only.** A late or replayed `pending` notification must not undo a `settlement`. Payment status is stored separately from the fulfilment status (`processing` → `shipped` → `completed`), which stays an operator decision.
 
 ## Target repository layout
 
@@ -153,11 +162,14 @@ Each row is one step and produces one review note.
 | #  | Review file                 | Goal                                                                                         |
 | -- | --------------------------- | -------------------------------------------------------------------------------------------- |
 | 05 | `05-frontend-integration.md`| Replace `mocks/` with real API calls, loading/error/empty states, auth guard against the real session, CORS and proxy config |
+| 05a | `05a-supabase-migration.md` | Migrate the database from MySQL to Supabase PostgreSQL, update backend connection configuration and environment examples, and verify migrations and existing API tests against Supabase |
 
 ### Phase 5b: Payment gateway integration (Midtrans)
 | #   | Review file                         | Goal                                                                                       |
 | --- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
 | 05b | `05b-midtrans-payment-gateway.md`   | Integrate **Midtrans Snap** in sandbox mode using its official SDK. Create transactions on the server from the persisted order and authoritative IDR total; never accept amounts or paid status from the client. Store Midtrans transaction identifiers and payment status, and keep credentials in `.env` with placeholders in `.env.example`. Add Snap checkout and pending/paid/failed/expired states to the frontend. Verify every webhook signature, make notification handling idempotent, and reconcile payment/order status without trusting the browser redirect. Test transaction creation, provider errors, valid/invalid/replayed/out-of-order webhooks, and a sandbox payment flow; document local webhook testing without exposing secrets |
+
+**QRIS is a required payment method.** Use the Midtrans Snap QRIS flow to display a transaction-specific dynamic QR code, payment instructions, and its expiry time. Keep the order pending until a verified Midtrans notification confirms settlement; scanning the QR code or reaching the browser success page is not proof of payment. Include successful, pending, and expired QRIS payments in the sandbox tests.
 
 ### Phase 5c: Review backlog
 
@@ -172,6 +184,13 @@ Every entry follows the *Review process* above: an executor session prepares the
 reviewer session verifies it and closes the note. The worklist records the model/session that
 executed and reviewed each note.
 
+### Phase 5d: Essential account and order completion
+| #   | Review file                       | Goal                                                                                         |
+| --- | --------------------------------- | -------------------------------------------------------------------------------------------- |
+| 05d | `05d-password-recovery.md`        | Add forgot/reset-password pages and API. Send expiring, single-use reset tokens by email, store only token hashes, rate-limit requests, return the same response for unknown and known email addresses, and invalidate existing sessions after a reset. Test expiry, reuse, invalid tokens, rate limits and session invalidation |
+| 05e | `05e-customer-cancellation.md`    | Let customers cancel their own `processing` orders only when no payment is paid or pending. Add a clear confirmation flow, ownership checks and a cancellation reason; cancel and restore stock exactly once in one transaction. Paid orders and shipped/completed orders are excluded |
+| 05f | `05f-admin-payment-dashboard.md`  | Show payment status in admin order lists and details, and refuse shipment/completion until payment is paid. Correct the dashboard with server-side aggregates across all orders: revenue counts paid, non-cancelled orders only; retain status counts, recent orders and low-stock indicators. Test unpaid-order safeguards and aggregate accuracy beyond one page |
+
 ### Phase 6: Finishing touches
 | #  | Review file                | Goal                                                                                         |
 | -- | -------------------------- | -------------------------------------------------------------------------------------------- |
@@ -181,10 +200,16 @@ executed and reviewed each note.
 | 09 | `09-performance.md`        | Route code-splitting, image optimisation and lazy loading, DB indexes, query review          |
 | 10 | `10-docs-and-deploy.md`    | Final README, API docs, env docs, production build and deploy notes, demo accounts           |
 
+### Phase 7: Future enhancements (not required for core completion)
+| #  | Review file                | Goal                                                                                         |
+| -- | -------------------------- | -------------------------------------------------------------------------------------------- |
+| 11 | `11-admin-analytics.md`    | Optional admin analytics after steps 00–10: server-side date-range aggregates, paid-revenue and order trends, best-selling products, and accessible charts with equivalent tabular data. Do not block the core store or its deployment on this step |
+
 ## Conventions
 
 - **Frontend:** function components and hooks only, one component per file, PascalCase components, `camelCase` everything else. Tailwind utility classes in JSX. Extract a component when the same markup appears three or more times. No data fetching inside UI components: use `services/` and hooks.
 - **Backend:** layered as route → controller → service → db. Controllers hold no SQL. All SQL uses parameterised queries. Return errors as `{ error: { code, message, details? } }`. Money is stored in IDR as a whole-number Rupiah amount (`BIGINT`, no decimal subunit), and never as float.
+- **Payments:** the provider call is made outside the checkout transaction, so an order survives a provider outage; a failed attempt is recorded and retryable. Every provider callback is treated as untrusted input: validated, signature-checked, deduplicated by a stored hash, and reconciled inside one transaction that locks the payment row. Provider transaction ids, statuses and amounts are stored; provider secrets and raw credentials are never logged or returned.
 - **API:** REST under `/api/v1`, plural nouns, JSON only, pagination as `?page=&limit=`.
 - **DB:** every table is prefixed `tbl_` and named in **Bahasa Indonesia**, singular and uninflected for number (`tbl_pengguna`, `tbl_produk`, `tbl_item_pesanan`). Columns, constraints and indexes stay `snake_case` in English. `id` as `BIGINT GENERATED ALWAYS AS IDENTITY` (decided in 04a), `created_at` and `updated_at` on every table, migrations are forward-only and never edited after merge.
 - **Git** (when asked to commit): short imperative subject, capitalised, no trailing period, about 50 characters. Add a body only if it adds information.

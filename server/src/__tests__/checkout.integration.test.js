@@ -252,6 +252,7 @@ describe('create', () => {
       for (const [paymentMethod, label] of [
         ['bca', 'Transfer bank BCA'],
         ['bni-va', 'Virtual account BNI'],
+        ['qris', 'QRIS'],
         ['kartu', 'Kartu kredit'],
       ]) {
         index += 1;

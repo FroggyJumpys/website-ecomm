@@ -46,8 +46,11 @@ Checked on this machine:
       mock data, correct Rupiah formatting, and working hover/discount badges
 - [x] Category tiles and "lihat semua" links route to `/toko?kategori=...` and `/toko?sort=...`,
       matching the query parameters the header search/nav already use
-- [x] Loading state verified by throttling `LATENCY_MS` manually; skeletons match the final grid
-      shape so nothing jumps
+- [x] Loading state: each pending grid reserves one slot per product it will load — four for new
+      arrivals, eight for trending — so the loaded grid does not add a row. Pinned by
+      `client/src/pages/__tests__/home-page.test.jsx`; see *Revision 1* for the commands and output.
+      (The original claim here was a manual `LATENCY_MS` throttle against the mock catalogue. Phase 05
+      removed `client/src/mocks/`, so that procedure no longer exists and the claim was replaced.)
 - [ ] Screen reader pass — deferred to step 08 (accessibility sweep) per the roadmap, but basic
       affordances (alt text, landmarks, focus-visible) are already in place from step 02's layout
 
@@ -140,3 +143,90 @@ Checked on this machine:
 
 - Frontend behavioural tests and the full accessibility/screen-reader pass remain correctly deferred to steps 07 and 08.
 - The mixed photography and later removal of mocks are outside this page's review scope.
+
+## Revision 1 — 2026-11-19
+
+Addresses the required change in the review of 2026-11-18. The status stays `Changes requested`; only the
+reviewer may set `Approved`.
+
+### The defect, confirmed
+
+`HomePage` requested **eight** trending products (`useProducts({ sort: 'rating', limit: 8 })`) while the
+local `ProductGrid` always rendered **four** `ProductCardSkeleton`s. On desktop (`sm:grid-cols-4`) the
+trending section therefore grew from one row while pending to two rows once loaded. Re-rendered against
+the pre-fix component it reports exactly that: four trending skeletons for eight requested products.
+
+### The fix
+
+`client/src/pages/HomePage.jsx`:
+
+- The two grid sizes are now named constants — `NEW_ARRIVALS_LIMIT = 4` and `TRENDING_LIMIT = 8` — and each
+  one feeds **both** the query limit and the skeleton count, so the two cannot drift apart.
+- `ProductGrid` takes a `count` prop instead of hardcoding four. New arrivals pass 4, trending passes 8.
+- The loaded branch is untouched: it still renders one `ProductCard` per returned product. Nothing about
+  the visible page changes; only the pending footprint.
+
+### The regression test
+
+`client/src/pages/__tests__/home-page.test.jsx` (the first client test) server-renders `HomePage` with
+`react-dom/server` — no browser, no new dependency — and asserts two things:
+
+1. the new-arrivals section renders **4** product skeletons and the trending section **8**;
+2. the limits stored in the TanStack Query cache for those two queries are `[4, 8]`.
+
+The second assertion is what makes the test meaningful: changing a limit without changing its skeleton
+count (or the reverse) fails, which is precisely the drift that produced this defect.
+
+It is kept as a permanent test rather than a throwaway script because it pins the reviewed defect and adds
+no dependency. It does not pre-empt step 07, which still owns component interaction, form and accessibility
+tests.
+
+### Files changed by this revision
+
+| File | Change |
+| ---- | ------ |
+| `client/src/pages/HomePage.jsx` | `NEW_ARRIVALS_LIMIT` / `TRENDING_LIMIT` constants drive both the query limit and the skeleton count; `ProductGrid` takes `count` |
+| `client/src/pages/__tests__/home-page.test.jsx` | New. Regression test for the pending footprint, tied to the requested limits |
+| `.reviews/03a-home-page.md` | Loading-state checklist item replaced with reproducible evidence; this revision |
+
+### Evidence
+
+| Check | Result |
+| ----- | ------ |
+| `npx vitest run src/pages/__tests__/home-page.test.jsx` (from `client/`) | **1 passed** — 4 new-arrival skeletons, 8 trending skeletons, query limits `[4, 8]` |
+| Same assertions against the pre-fix component (`git show HEAD:client/src/pages/HomePage.jsx`) | **failed** — `old arrivals skeletons: 4`, `old trending skeletons: 4`, `expected 4 to be 8`. The test therefore detects the original defect. The temporary fixture and probe were deleted afterwards |
+| `npm test` (repo root) | client **1 passed**; server **320 passed** (20 files) |
+| `npm run lint` | clean |
+| `npm run build` | ok — 560.23 kB JS, only the known >500 kB chunk warning (step 09) |
+
+### How to verify
+
+```sh
+# from the repo root
+npm test                                                          # client 1 test + server 320 unit tests
+cd client
+npx vitest run src/pages/__tests__/home-page.test.jsx             # the focused check
+```
+
+In the running app: open `/` and hard-reload with throttling (DevTools → Network → Slow 4G). While pending,
+“Sedang digemari” must show **two rows of four** skeletons (eight), not one row; when the data lands, the
+section fills those same eight slots without the page growing.
+
+One honest caveat: if the catalogue ever holds fewer than eight rated products, the loaded trending grid is
+legitimately shorter than the reservation. Reserving the *requested* limit is the closest match available
+while pending, and the seeded catalogue has enough products for both grids.
+
+### Not done in this revision
+
+- No change to layout, copy, imagery or query semantics — the defect was purely the pending footprint.
+- No screenshot re-capture: there is no browser automation in this session. The footprint is asserted on the
+  rendered markup, which is stricter than a screenshot for this specific property.
+- The loaded branch is not asserted in the test (rendering `ProductCard` would pull in the auth and wishlist
+  providers). The query-limit assertion covers it: the limit is what bounds how many cards can load.
+
+### Open questions for the reviewer
+
+1. Is a permanent client test acceptable in step 03a, or should this step stay test-free and the coverage
+   live only in step 07? Deleting `client/src/pages/__tests__/home-page.test.jsx` is a one-file change.
+2. The two constants are intentionally local to `HomePage.jsx`. Say the word if you would rather they moved
+   to `client/src/lib/config.js`.

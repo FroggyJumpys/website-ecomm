@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { FiBox, FiLogOut, FiUser } from 'react-icons/fi';
 import { Badge } from '../ui/Badge.jsx';
 import { headerIconButton } from '../ui/buttonStyles.js';
@@ -20,8 +20,7 @@ const menuItem =
  * no arrow-key handling is needed to keep it usable.
  */
 export function AccountMenu() {
-  const { status, user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { status, user, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
   const triggerRef = useRef(null);
@@ -56,12 +55,11 @@ export function AccountMenu() {
     );
   }
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setOpen(false);
-    // Leave first: the guard would otherwise redirect to /masuk the moment the
-    // session drops, which reads as "access denied" rather than "signed out".
-    navigate(routes.home);
-    await logout();
+    // The provider takes the visitor home and only then drops the session, so
+    // this never lands on the guard's /masuk?redirect=… (see signOut.js).
+    void signOut();
   };
 
   return (

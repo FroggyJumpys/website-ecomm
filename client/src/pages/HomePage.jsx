@@ -26,11 +26,19 @@ const trustPoints = [
   },
 ];
 
-function ProductGrid({ query }) {
+/**
+ * The two home-page grids. The limit feeds the query and the skeleton count, so a pending
+ * grid always reserves exactly as many slots as the loaded grid will fill.
+ */
+const NEW_ARRIVALS_LIMIT = 4;
+const TRENDING_LIMIT = 8;
+
+/** A product grid that keeps the loaded footprint while pending. */
+function ProductGrid({ query, count }) {
   if (query.isPending) {
     return (
       <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+        {Array.from({ length: count }).map((_, index) => (
           <ProductCardSkeleton key={index} />
         ))}
       </div>
@@ -92,8 +100,8 @@ function CategoryGrid({ query }) {
 
 export function HomePage() {
   const categoriesQuery = useCategories();
-  const newArrivalsQuery = useProducts({ sort: 'newest', limit: 4 });
-  const trendingQuery = useProducts({ sort: 'rating', limit: 8 });
+  const newArrivalsQuery = useProducts({ sort: 'newest', limit: NEW_ARRIVALS_LIMIT });
+  const trendingQuery = useProducts({ sort: 'rating', limit: TRENDING_LIMIT });
 
   return (
     <>
@@ -168,7 +176,7 @@ export function HomePage() {
           title="Baru tiba"
           action={{ label: 'Lihat semua', to: `${routes.shop}?sort=newest` }}
         />
-        <ProductGrid query={newArrivalsQuery} />
+        <ProductGrid query={newArrivalsQuery} count={NEW_ARRIVALS_LIMIT} />
       </section>
 
       {/* Promo banner */}
@@ -204,7 +212,7 @@ export function HomePage() {
           title="Sedang digemari"
           action={{ label: 'Lihat semua', to: `${routes.shop}?sort=rating` }}
         />
-        <ProductGrid query={trendingQuery} />
+        <ProductGrid query={trendingQuery} count={TRENDING_LIMIT} />
       </section>
     </>
   );

@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url';
 import { env } from './config/env.js';
 import { pool as defaultPool } from './config/db.js';
 import { createApiRouter } from './routes/index.js';
+import { createPaymentService } from './services/payments.js';
+import { createMidtransProvider, unconfiguredProvider } from './services/midtrans-provider.js';
+import { snapScriptUrl } from './lib/payments.js';
 import { defaultUploadRoot } from './services/admin-storage.js';
 import { notFound } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -43,8 +46,39 @@ export function createApp({
   publicImageDir = env.PUBLIC_IMAGE_DIR ?? defaultPublicImageDir(),
   adminUploadLimit = 20,
   adminUploadWindowMs = 15 * 60 * 1000,
+  /**
+   * Built from `MIDTRANS_*` (or legacy `MT_*`) unless supplied. Tests inject a
+   * service bound to a fake provider and a known key so they never reach the
+   * network and never need real credentials.
+   */
+  paymentService: injectedPaymentService = null,
 } = {}) {
   const app = express();
+
+  /**
+   * Payment wiring. Without credentials the provider refuses with a clear 503
+   * instead of the whole API failing at boot, so a developer can run the shop
+   * before the Midtrans keys exist.
+   */
+  const paymentService =
+    injectedPaymentService ??
+    createPaymentService(pool, {
+      provider:
+        env.MIDTRANS_SERVER_KEY && env.MIDTRANS_CLIENT_KEY
+          ? createMidtransProvider({
+              serverKey: env.MIDTRANS_SERVER_KEY,
+              clientKey: env.MIDTRANS_CLIENT_KEY,
+              isProduction: env.MIDTRANS_IS_PRODUCTION,
+            })
+          : unconfiguredProvider,
+      serverKey: env.MIDTRANS_SERVER_KEY,
+      clientKey: env.MIDTRANS_CLIENT_KEY,
+      isProduction: env.MIDTRANS_IS_PRODUCTION,
+      scriptUrl:
+        env.MIDTRANS_SNAP_SCRIPT_URL ?? snapScriptUrl({ production: env.MIDTRANS_IS_PRODUCTION }),
+      clientOrigin: env.CLIENT_ORIGIN,
+      expiryMinutes: env.MIDTRANS_EXPIRY_MINUTES,
+    });
 
   app.locals.pool = pool;
   app.locals.uploadDir = uploadDir;
@@ -79,6 +113,7 @@ export function createApp({
       clientOrigin: env.CLIENT_ORIGIN,
       adminUploadLimit,
       adminUploadWindowMs,
+      paymentService,
     })
   );
 
