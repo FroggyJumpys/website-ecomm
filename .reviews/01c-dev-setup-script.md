@@ -17,17 +17,22 @@ PostgreSQL/Docker instance on request, so a new collaborator no longer has to co
 The script never overwrites an existing `server/.env` unless `--force` is passed, and it warns when
 the file it found still has database placeholders or the development session secret.
 
+On Windows, `setup.cmd` in the repository root wraps the same script so it can be double-clicked
+from Explorer, and `node_modules/` is installed by the script itself (root `npm install`, skipped
+with `--skip-install`).
+
 ## Files added / changed
 
-| File                    | Change                                                                                                                                                                                                      |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/setup.mjs`     | New. The setup CLI: version check, `npm install`, directory creation, `.env` rendering, optional `db:migrate`/`db:seed`. Pure helpers are exported so they can be tested; importing it has no side effects. |
-| `scripts/setup.test.js` | New. 19 unit tests using Node's built-in `node:test` runner (no new dependency, no database).                                                                                                               |
-| `package.json`          | Added `setup` and `test:setup`; `test` now runs the setup tests before the workspace suites.                                                                                                                |
-| `eslint.config.js`      | Node globals and lint rules now cover `scripts/**/*.{js,mjs}` (previously only `server/**` and `*.config.js`).                                                                                              |
-| `server/.env.example`   | Documents `JWT_SECRET`; the example previously omitted it even though `server/src/config/env.js` requires 24+ characters.                                                                                   |
-| `README.md`             | “Getting started” is now the script flow with a flags table, Supabase as the primary path and local PostgreSQL/Docker as optional. Scripts table, layout and tests sections updated.                        |
-| `AGENTS.md`             | Database stack row says Supabase is the default with local as fallback; layout lists `scripts/`; 05a row wording corrected (“local Docker as the default” is no longer true); new roadmap row `01c`.        |
+| File                    | Change                                                                                                                                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/setup.mjs`     | New. The setup CLI: version check, `npm install`, directory creation, `.env` rendering, optional `db:migrate`/`db:seed`. Pure helpers are exported so they can be tested; importing it has no side effects.          |
+| `scripts/setup.test.js` | New. 19 unit tests using Node's built-in `node:test` runner (no new dependency, no database).                                                                                                                        |
+| `setup.cmd`             | New. Windows double-click wrapper: sets code page 65001, runs `node scripts\setup.mjs` with the forwarded arguments, keeps the window open only when started from Explorer, and exits with the script's code.        |
+| `package.json`          | Added `setup` and `test:setup`; `test` now runs the setup tests before the workspace suites.                                                                                                                         |
+| `eslint.config.js`      | Node globals and lint rules now cover `scripts/**/*.{js,mjs}` (previously only `server/**` and `*.config.js`).                                                                                                       |
+| `server/.env.example`   | Documents `JWT_SECRET`; the example previously omitted it even though `server/src/config/env.js` requires 24+ characters.                                                                                            |
+| `README.md`             | “Getting started” is now the script flow with a flags table, Supabase as the primary path and local PostgreSQL/Docker as optional. Scripts table, layout and tests sections updated.                                 |
+| `AGENTS.md`             | Database stack row says Supabase is the default with local as fallback; layout lists `scripts/` and `setup.cmd`; 05a row wording corrected (“local Docker as the default” is no longer true); new roadmap row `01c`. |
 
 ## How to run and verify
 
@@ -62,7 +67,11 @@ grep -nE '^(DATABASE_PROVIDER|SUPABASE_POOLER_URL|SUPABASE_DB_PASSWORD|TEST_DATA
 DOTENV_CONFIG_PATH='C:/Users/<you>/AppData/Local/Temp/badekor-check/server/.env' \
   node --input-type=module -e 'const { env } = await import("./server/src/config/env.js"); console.log(env.DATABASE_PROVIDER, env.DATABASE_SSL, env.JWT_SECRET.length);'
 
-# 6. Repo-wide checks
+# 6. Windows wrapper (Git Bash: `cmd //c`, or double-click setup.cmd in Explorer)
+cmd //c setup.cmd --help < /dev/null
+cmd //c setup.cmd --bogus < /dev/null   # must print the failure and exit 1
+
+# 7. Repo-wide checks
 npm run lint
 npm test
 
@@ -79,10 +88,15 @@ Checklist for the reviewer:
       `REPLACE_ME`, `TEST_DATABASE_URL` points at `/<test-database>`, and `sslmode` is gone.
 - [ ] `JWT_SECRET` is 64 random characters in both providers.
 - [ ] Step 5 loads the generated file through `server/src/config/env.js` without a zod error.
+- [ ] `setup.cmd --help` prints the same help as `npm run setup -- --help`; an unknown option exits 1.
 - [ ] `npm run lint` and `npm test` pass; `npm test` prints the setup tests before the API suites.
 
 ## Decisions and trade-offs
 
+- **`setup.cmd` only for Windows, no logic duplication.** It switches the console to UTF-8 (the
+  output contains an em dash), forwards `%*` to `scripts/setup.mjs`, and keeps the window open only
+  when it was started from Explorer (`%cmdcmdline%` contains the file name) so a double-click does
+  not flash and close. Everything else stays in the Node script.
 - **Node script instead of `.sh`/`.bat`.** Node is already a requirement, so one file works on
   Windows, macOS and Linux. `npm run setup` wraps it; a shell script would need two variants.
 - **Supabase by default, Docker optional.** The team moved the database to Supabase (05a), so a
@@ -114,6 +128,9 @@ PAYMENT_NOT_CONFIGURED`), so they stay a manual edit in `server/.env`. A follow-
   for them when they are present in the environment.
 - **No password masking at the prompt.** The Supabase password is echoed while typed. Adding raw-mode
   masking is follow-up work if the reviewer wants it.
+- **No PowerShell variant and no `.gitattributes`.** `setup.cmd` covers double-clicking on Windows;
+  a `.ps1` would only duplicate it. Git's `core.autocrlf` already checks the file out with CRLF on
+  Windows, so a `*.cmd eol=crlf` attribute was not added.
 - **Not added to CI.** There is no CI pipeline in the repo yet; `npm test` and `npm run lint` cover it.
 
 ## Out of scope / noticed

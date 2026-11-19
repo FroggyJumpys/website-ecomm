@@ -49,6 +49,7 @@ ecomm-web/
 │   └── src/{config,routes,controllers,services,middleware,db,validators,lib}
 │   └── db/{migrations,seeds}
 ├── scripts/             # repository tooling (`npm run setup`)
+├── setup.cmd            # Windows double-click wrapper for the setup script
 ├── docker-compose.yml   # optional local PostgreSQL, not needed for Supabase
 └── screenshots/
 ```

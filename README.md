@@ -50,6 +50,10 @@ the git-ignored runtime folders (`server/uploads/catalog/`), writes a `server/.e
 generated `JWT_SECRET`, and never overwrites an existing `server/.env` unless `--force` is passed.
 Pass `--migrate` to run migrations and seeds in the same command.
 
+On Windows, `setup.cmd` in the repository root does the same thing and can be double-clicked from
+Explorer: it switches the console to UTF-8, keeps the window open at the end, and forwards
+arguments (`setup.cmd --migrate`). Running `npm run setup` is equivalent.
+
 | Option                         | Purpose                                                                                      |
 | ------------------------------ | -------------------------------------------------------------------------------------------- |
 | `--provider <supabase\|local>` | Which database `server/.env` should point at. Defaults to `supabase`.                        |
