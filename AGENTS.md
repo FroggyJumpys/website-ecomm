@@ -16,7 +16,7 @@ Guidance for AI agents (and humans) working on **ecomm-web**, a group project th
 | Frontend | ReactJS (**JavaScript, no TypeScript**), Vite, React Router     |
 | Styling  | Tailwind CSS **latest** (keep latest) |
 | Backend  | Node.js + Express (JavaScript, ES modules)                      |
-| Database | PostgreSQL via `pg` + plain SQL migrations                      |
+| Database | PostgreSQL on **Supabase** (session pooler) via `pg` + SQL migrations; a local PostgreSQL/Docker instance stays supported as an offline fallback |
 | Auth     | JWT in httpOnly cookie, passwords hashed with `bcrypt`          |
 | Validate | `zod` on the backend, controlled forms on the frontend          |
 | Payments | **Midtrans Snap** (sandbox in development) via the official `midtrans-client` SDK; transactions are created server-side and payment state is confirmed by signed webhooks |
@@ -48,7 +48,8 @@ ecomm-web/
 ├── server/              # Express API
 │   └── src/{config,routes,controllers,services,middleware,db,validators,lib}
 │   └── db/{migrations,seeds}
-├── docker-compose.yml   # local PostgreSQL
+├── scripts/             # repository tooling (`npm run setup`)
+├── docker-compose.yml   # optional local PostgreSQL, not needed for Supabase
 └── screenshots/
 ```
 
@@ -117,6 +118,7 @@ Each row is one step and produces one review note.
 | --- | --------------------------- | -------------------------------------------------------------------------------------------- |
 | 01a | `01a-dependency-upgrade.md` | Audit the latest stable versions for every piece of the stack (Node LTS, React, Vite, React Router, Express, `pg`, `zod`, `bcrypt`, ESLint/Prettier, Tailwind v4 latest). Record the chosen versions; they are what step 01b scaffolds with |
 | 01b | `01b-codebase-setup.md`     | Move template to `legacy-template/`, scaffold `client/` and `server/` on the versions from 01a, Tailwind config fixed and ported, ESLint + Prettier, `.gitignore`, `.env.example`, root scripts (`dev`, `lint`), Postgres setup (local or docker-compose), health-check endpoint, README rewrite |
+| 01c | `01c-dev-setup-script.md`   | Add `scripts/setup.mjs` (`npm run setup`) so a fresh clone is one command: check the Node version, install the workspaces, create the git-ignored runtime folders, and write the git-ignored `server/.env` (plus the optional root `.env`) with a generated `JWT_SECRET` and the chosen database — Supabase by default, local PostgreSQL/Docker on request — without overwriting an existing file. Unit-test the pure helpers and document the script in the README |
 
 ### Phase 2: Frontend foundation
 | #  | Review file                | Goal                                                                                         |
@@ -162,7 +164,7 @@ Each row is one step and produces one review note.
 | #  | Review file                 | Goal                                                                                         |
 | -- | --------------------------- | -------------------------------------------------------------------------------------------- |
 | 05 | `05-frontend-integration.md`| Replace `mocks/` with real API calls, loading/error/empty states, auth guard against the real session, CORS and proxy config |
-| 05a | `05a-supabase-migration.md` | Migrate the database from MySQL to Supabase PostgreSQL, update backend connection configuration and environment examples, and verify migrations and existing API tests against Supabase |
+| 05a | `05a-supabase-migration.md` | Move the runtime database connection from local PostgreSQL to Supabase PostgreSQL (session pooler) as the default, support a local instance as an offline fallback, update connection configuration and environment examples, and verify migrations, seed data and existing API tests against Supabase |
 
 ### Phase 5b: Payment gateway integration (Midtrans)
 | #   | Review file                         | Goal                                                                                       |
@@ -184,12 +186,17 @@ Every entry follows the *Review process* above: an executor session prepares the
 reviewer session verifies it and closes the note. The worklist records the model/session that
 executed and reviewed each note.
 
-### Phase 5d: Essential account and order completion
+### Phase 5d: Redis caching
+| #   | Review file              | Goal                                                                                         |
+| --- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| 05d | `05d-redis-caching.md`   | Add Redis caching for public catalogue reads (categories, brands, product lists and details) with bounded TTLs and explicit invalidation on admin catalogue writes. Do not cache sessions, carts, stock-sensitive checkout data, orders or payments. Document Redis environment settings with placeholders, keep the API usable with safe database fallback when Redis is unavailable, and test cache hits, misses, invalidation and failover |
+
+### Phase 5e: Essential account and order completion
 | #   | Review file                       | Goal                                                                                         |
 | --- | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| 05d | `05d-password-recovery.md`        | Add forgot/reset-password pages and API. Send expiring, single-use reset tokens by email, store only token hashes, rate-limit requests, return the same response for unknown and known email addresses, and invalidate existing sessions after a reset. Test expiry, reuse, invalid tokens, rate limits and session invalidation |
-| 05e | `05e-customer-cancellation.md`    | Let customers cancel their own `processing` orders only when no payment is paid or pending. Add a clear confirmation flow, ownership checks and a cancellation reason; cancel and restore stock exactly once in one transaction. Paid orders and shipped/completed orders are excluded |
-| 05f | `05f-admin-payment-dashboard.md`  | Show payment status in admin order lists and details, and refuse shipment/completion until payment is paid. Correct the dashboard with server-side aggregates across all orders: revenue counts paid, non-cancelled orders only; retain status counts, recent orders and low-stock indicators. Test unpaid-order safeguards and aggregate accuracy beyond one page |
+| 05e | `05e-password-recovery.md`        | Add forgot/reset-password pages and API. Send expiring, single-use reset tokens by email, store only token hashes, rate-limit requests, return the same response for unknown and known email addresses, and invalidate existing sessions after a reset. Test expiry, reuse, invalid tokens, rate limits and session invalidation |
+| 05f | `05f-customer-cancellation.md`    | Let customers cancel their own `processing` orders only when no payment is paid or pending. Add a clear confirmation flow, ownership checks and a cancellation reason; cancel and restore stock exactly once in one transaction. Paid orders and shipped/completed orders are excluded |
+| 05g | `05g-admin-payment-dashboard.md`  | Show payment status in admin order lists and details, and refuse shipment/completion until payment is paid. Correct the dashboard with server-side aggregates across all orders: revenue counts paid, non-cancelled orders only; retain status counts, recent orders and low-stock indicators. Test unpaid-order safeguards and aggregate accuracy beyond one page |
 
 ### Phase 6: Finishing touches
 | #  | Review file                | Goal                                                                                         |

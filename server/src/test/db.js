@@ -13,15 +13,13 @@ import { runMigrations } from '../db/migrations.js';
  *  - `resetDatabase()` truncates every domain table between tests.
  */
 
-export const testDatabaseUrl = resolveTestDatabaseUrl(
-  process.env.DATABASE_URL ?? env.DATABASE_URL,
-  process.env.TEST_DATABASE_URL
-);
+export const testDatabaseUrl = resolveTestDatabaseUrl(env.DATABASE_URL, env.TEST_DATABASE_URL);
 
 export const testPool = new pg.Pool({
   connectionString: testDatabaseUrl,
+  ssl: env.DATABASE_SSL ? { rejectUnauthorized: env.DATABASE_SSL_REJECT_UNAUTHORIZED } : undefined,
   max: 5,
-  connectionTimeoutMillis: 5_000,
+  connectionTimeoutMillis: 10_000,
 });
 
 let migrated = false;

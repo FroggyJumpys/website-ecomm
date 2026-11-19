@@ -12,6 +12,7 @@
     "node": ">=22.12"
   },
   "scripts": {
+    "setup": "node scripts/setup.mjs",
     "dev": "concurrently -n api,web -c magenta,cyan -k \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "npm run dev --workspace client",
     "dev:server": "npm run dev --workspace server",
@@ -22,7 +23,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test:setup && npm run test --workspaces --if-present",
+    "test:setup": "node --test scripts/setup.test.js",
     "test:all": "npm run test:all --workspace server",
     "test:unit": "npm run test:unit --workspace server",
     "test:integration": "npm run test:integration --workspace server",

@@ -13,7 +13,7 @@ design reference only. Nothing in it is built or deployed.
 | -------- | ------------------------------------------------------------- |
 | Frontend | React 19 (JavaScript), Vite 8, React Router 7, Tailwind CSS 4 |
 | Backend  | Node.js 22+, Express 5, Zod, JWT in an httpOnly cookie        |
-| Database | PostgreSQL, accessed with `pg` and plain SQL migrations       |
+| Database | PostgreSQL via `pg` and SQL migrations, local or Supabase     |
 | Tooling  | ESLint 9 (flat config), Prettier, Vitest, Supertest           |
 
 Tailwind uses v4's CSS-first configuration: design tokens live in `@theme` inside
@@ -22,28 +22,21 @@ Tailwind uses v4's CSS-first configuration: design tokens live in `@theme` insid
 ## Requirements
 
 - Node.js `>=22.12` and npm
-- PostgreSQL 15+ (local install or Docker)
+- A PostgreSQL database: a **Supabase** project (the default) or PostgreSQL 15+ running locally
+  (native install or Docker)
 
 ## Getting started
 
 ```sh
-# 1. Install all workspace dependencies
-npm install
+# 1. Install dependencies, create the runtime folders and write server/.env.
+#    Prompts for the Supabase session-pooler URL and database password.
+npm run setup
 
-# 2. Start PostgreSQL (skip if you already run Postgres locally)
-#    If port 5432 is already taken (e.g. a native PostgreSQL service), publish the
-#    container on another port instead: put `DB_PORT=5433` in a root `.env` (docker
-#    compose reads it) and set DATABASE_URL in server/.env to the same port.
-docker compose up -d db
-
-# 3. Configure the API
-cp server/.env.example server/.env
-
-# 4. Apply migrations and load the seed data (catalogue, demo accounts)
+# 2. Apply migrations and load the seed data (catalogue, demo accounts)
 npm run db:migrate
 npm run db:seed
 
-# 5. Run the API and the Vite dev server together
+# 3. Run the API and the Vite dev server together
 npm run dev
 ```
 
@@ -52,24 +45,81 @@ reaches it through the `/api` proxy configured in `client/vite.config.js`, which
 cookie first-party. Every screen reads the Express API: there is no mock mode, so the API and the
 seeded database must be running too.
 
+`npm run setup` (`node scripts/setup.mjs`) is idempotent: it installs the workspaces, creates
+the git-ignored runtime folders (`server/uploads/catalog/`), writes a `server/.env` with a freshly
+generated `JWT_SECRET`, and never overwrites an existing `server/.env` unless `--force` is passed.
+Pass `--migrate` to run migrations and seeds in the same command.
+
+| Option                         | Purpose                                                                                      |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `--provider <supabase\|local>` | Which database `server/.env` should point at. Defaults to `supabase`.                        |
+| `--supabase-url <url>`         | Session-pooler connection string from **Connect**. Also read from `SUPABASE_POOLER_URL`.     |
+| `--supabase-password <pass>`   | Database password. Also read from `SUPABASE_DB_PASSWORD`/`SUPABASE_PASS`, then from the URL. |
+| `--test-database <name>`       | Test database name (default `ba_dekor_test`).                                                |
+| `--database-url <url>`         | Connection string for `--provider local`.                                                    |
+| `--db-port <port>`             | Local mode: also writes `DB_PORT` into the root `.env` for `docker compose`.                 |
+| `--force`                      | Regenerate `server/.env` even when it already exists.                                        |
+| `--skip-install`               | Skip `npm install` (dependencies already present).                                           |
+| `--migrate`                    | Run `db:migrate` and `db:seed` after writing the environment file.                           |
+
+### Supabase (default)
+
+1. Create a Supabase project.
+2. From **Connect**, copy the **Session pooler** connection string. Prefer it over the direct
+   `db.<ref>.supabase.co` host, which is IPv6-only on free projects. Percent-encode special
+   characters in the password (`#` becomes `%23`).
+3. In the SQL editor, create the isolated test database once: `CREATE DATABASE ba_dekor_test;`.
+   Integration tests refuse to run against anything that does not end in `_test`.
+4. Run `npm run setup` and paste the connection string and password when prompted (or pass
+   `--supabase-url` and `--supabase-password`). The script keeps a single `REPLACE_ME` placeholder
+   in `SUPABASE_POOLER_URL`, stores the password once in `SUPABASE_DB_PASSWORD`, derives
+   `TEST_DATABASE_URL`, and strips `sslmode` (the API passes explicit SSL options instead).
+5. Run `npm run db:migrate` and `npm run db:seed` as above.
+
+Without a terminal to prompt in, pass the values as flags or export them first:
+
+```sh
+SUPABASE_POOLER_URL='postgresql://postgres.<ref>:<password>@aws-1-<region>.pooler.supabase.com:5432/postgres' \
+  npm run setup -- --provider supabase --migrate
+```
+
+### Local PostgreSQL or Docker (optional)
+
+Docker is only needed if you want a database on your own machine; the app itself does not require
+it.
+
+```sh
+npm run setup -- --provider local            # uses postgres://ba_dekor:ba_dekor@localhost:5432/ba_dekor
+# or point it at an existing database:
+npm run setup -- --provider local --database-url 'postgres://user:pass@localhost:5432/ba_dekor'
+docker compose up -d db                      # only for the bundled container
+npm run db:migrate && npm run db:seed
+```
+
+If something already owns port 5432 (a native PostgreSQL service, for example), add
+`--db-port 5433`: the script publishes the container on that port and rewrites `DATABASE_URL` to
+match, writing `DB_PORT=5433` into the root `.env` that `docker-compose.yml` reads.
+
 ## Scripts
 
 Run from the repository root.
 
-| Script                     | What it does                                |
-| -------------------------- | ------------------------------------------- |
-| `npm run dev`              | API (nodemon) + Vite dev server together    |
-| `npm run dev:client`       | Vite dev server only                        |
-| `npm run dev:server`       | Express API only                            |
-| `npm run build`            | Production build of the client              |
-| `npm start`                | Start the API without nodemon               |
-| `npm run lint`             | ESLint over `client/` and `server/`         |
-| `npm run format`           | Prettier over the whole repo                |
-| `npm test`                 | Unit tests (no database required)           |
-| `npm run test:all`         | Unit and integration tests together         |
-| `npm run test:integration` | PostgreSQL-backed integration tests         |
-| `npm run db:migrate`       | Apply pending SQL migrations                |
-| `npm run db:seed`          | Load seed data (idempotent, safe to re-run) |
+| Script                     | What it does                                             |
+| -------------------------- | -------------------------------------------------------- |
+| `npm run setup`            | Install, create folders and write the git-ignored `.env` |
+| `npm run dev`              | API (nodemon) + Vite dev server together                 |
+| `npm run dev:client`       | Vite dev server only                                     |
+| `npm run dev:server`       | Express API only                                         |
+| `npm run build`            | Production build of the client                           |
+| `npm start`                | Start the API without nodemon                            |
+| `npm run lint`             | ESLint over `client/`, `server/` and `scripts/`          |
+| `npm run format`           | Prettier over the whole repo                             |
+| `npm test`                 | Setup-script and unit tests (no database required)       |
+| `npm run test:setup`       | Tests for `scripts/setup.mjs` only                       |
+| `npm run test:all`         | Unit and integration tests together                      |
+| `npm run test:integration` | PostgreSQL-backed integration tests                      |
+| `npm run db:migrate`       | Apply pending SQL migrations                             |
+| `npm run db:seed`          | Load seed data (idempotent, safe to re-run)              |
 
 ## Layout
 
@@ -83,21 +133,33 @@ server/                 Express API
   db/seeds/             Catalogue, demo accounts, addresses and orders
   uploads/catalog/      Uploaded product images (git-ignored, back this up)
 legacy-template/        Original static HTML, reference only
+scripts/setup.mjs       One-command local setup (npm run setup)
 .reviews/               One review note per development step
 AGENTS.md               Conventions, working rules and the development roadmap
 ```
 
 ## Environment variables
 
-See [`server/.env.example`](./server/.env.example). Copy it to `server/.env`; that file is
-git-ignored. `JWT_SECRET` must be at least 24 characters, and a real value is required when
-`NODE_ENV=production`. `CLIENT_ORIGIN` must match the browser origin that calls the API, because
-the session cookie is sent with credentials.
+See [`server/.env.example`](./server/.env.example). `npm run setup` writes `server/.env` from it
+with a generated `JWT_SECRET`; that file is git-ignored. Any `JWT_SECRET` of at least 24 characters
+works outside production, and a real value is required when `NODE_ENV=production`.
+`CLIENT_ORIGIN` must match the browser origin that calls the API, because the session cookie is
+sent with credentials.
 
 The client reads one optional variable, documented in [`client/.env.example`](./client/.env.example):
 `VITE_API_BASE_URL`, which defaults to `/api/v1`. Leaving it at the default is correct whenever
 `/api` is proxied to Express — which is what both the Vite dev server and the production web server
 do.
+
+`DATABASE_PROVIDER=local` uses `DATABASE_URL` for Docker or a native PostgreSQL install.
+`DATABASE_PROVIDER=supabase` instead builds the connection from `SUPABASE_POOLER_URL` (or the
+fallback `SUPABASE_CONN`) and replaces a `[YOUR-DATABASE-PASSWORD]` or `REPLACE_ME` placeholder
+with `SUPABASE_DB_PASSWORD` or `SUPABASE_PASS`. Use the session-pooler URL on IPv4-only networks;
+the direct Supabase host is IPv6-only. Supabase connections enable SSL automatically. The pooler
+CA is not in Node's default trust store, so certificate verification is off by default; set
+`DATABASE_SSL_REJECT_UNAUTHORIZED=true` only together with `NODE_EXTRA_CA_CERTS` pointing at the
+pooler CA. `TEST_DATABASE_URL` must name a database ending in `_test`; for Supabase, create
+`ba_dekor_test` once in the SQL editor and point it at that database.
 
 Midtrans keys go in `server/.env` as `MIDTRANS_SERVER_KEY`, `MIDTRANS_CLIENT_KEY` and
 `MIDTRANS_MERCHANT_ID`, with `MIDTRANS_IS_PRODUCTION=false` for sandbox. `MIDTRANS_EXPIRY_MINUTES`
@@ -108,9 +170,10 @@ payment endpoints answer `503 PAYMENT_NOT_CONFIGURED`, so the shop runs before t
 Sandbox keys start with `SB-Mid-`; a production key in a development checkout is a mistake, not a
 shortcut.
 
-`docker-compose.yml` publishes the database on `${DB_PORT:-5432}`. If something else already owns
-5432 (a native PostgreSQL service, for example), create a root `.env` containing `DB_PORT=5433`
-and set `DATABASE_URL` in `server/.env` to `...@localhost:5433/ba_dekor`. Both `.env` files are
+`docker-compose.yml` publishes the database on `${DB_PORT:-5432}` and is only used with
+`--provider local`. If something else already owns 5432 (a native PostgreSQL service, for example),
+run `npm run setup -- --provider local --db-port 5433`, which writes `DB_PORT=5433` into the root
+`.env` and rewrites `DATABASE_URL` in `server/.env` to the same port. Both `.env` files are
 git-ignored, so the defaults stay correct for everyone else.
 
 ## API
@@ -583,19 +646,26 @@ The admin screens and the `client/src/services/admin.js` adapter were replaced i
 ## Tests
 
 ```sh
-npm test                   # unit tests, no database needed
+npm test                   # setup-script + unit tests, no database needed
 npm run test:integration   # PostgreSQL-backed tests
 ```
 
 The integration suite uses `TEST_DATABASE_URL`, or `DATABASE_URL` with a `_test` suffix, and
 refuses to run against a database whose name does not end in `_test`, because it truncates tables
-between tests. Create the database once:
+between tests. Create the database once, using the method that matches the configured provider:
 
 ```sh
+# Local Docker
 docker compose exec db createdb -U ba_dekor ba_dekor_test
 ```
 
-`npm test` deliberately stays database-free so it passes on a machine without PostgreSQL; the
+For Supabase, run `CREATE DATABASE ba_dekor_test;` in the SQL editor and set
+`TEST_DATABASE_URL` to the pooler URL with `/ba_dekor_test` as its database — `npm run setup` writes
+that URL for you. The integration suite uses a 60 second per-test timeout because pooler round-trips
+are slower than a local socket.
+
+`npm test` deliberately stays database-free so it passes on a machine without PostgreSQL: it runs
+the `scripts/setup.mjs` tests through Node's built-in test runner and then the API unit suites. The
 database-backed suites run only through `npm run test:integration` and `npm run test:all`.
 
 ## Development process

@@ -53,7 +53,7 @@ export default [
 
   // Node-side code (Express, scripts, tests)
   {
-    files: ['server/**/*.js', '*.config.js'],
+    files: ['server/**/*.js', 'scripts/**/*.{js,mjs}', '*.config.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

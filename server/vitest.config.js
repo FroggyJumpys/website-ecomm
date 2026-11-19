@@ -18,8 +18,10 @@ export default defineConfig({
           include: ['src/__tests__/**/*.integration.test.js'],
           fileParallelism: false,
           // bcrypt hashing and a real database make these slower than the units.
-          testTimeout: 20_000,
-          hookTimeout: 30_000,
+          // Supabase's pooler adds network round-trips on top; some tests run a
+          // dozen transactions in one case, so the old 20 s limit timed out.
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
         },
       },
     ],
